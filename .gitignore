@@ -1,2 +1,4 @@
 venv/
-venv/
+graphify-out/
+.graphify/
+.DS_Store
