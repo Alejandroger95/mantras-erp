@@ -3,6 +3,9 @@
 -- Tabla: hr.companies
 -- Descripción: Tenant raíz del sistema multi-empresa.
 --              Toda entidad del ERP pertenece a una empresa.
+--
+-- ANTES DE EJECUTAR: conectarse a la base de datos mantrasdb
+-- en DBeaver (doble clic en mantrasdb → botón derecho → SQL Editor)
 -- ============================================================
 
 CREATE SCHEMA IF NOT EXISTS hr;
