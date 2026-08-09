@@ -110,8 +110,10 @@ CREATE TABLE finance.tax_periods (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    UNIQUE (company_id, tax_type_id, period_year, COALESCE(period_month, 0))
 );
+
+CREATE UNIQUE INDEX uq_tax_periods
+    ON finance.tax_periods (company_id, tax_type_id, period_year, COALESCE(period_month, 0));
 
 CREATE TRIGGER trg_taxperiod_updated_at
     BEFORE UPDATE ON finance.tax_periods

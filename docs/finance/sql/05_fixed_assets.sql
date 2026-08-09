@@ -79,8 +79,10 @@ CREATE TABLE finance.asset_categories (
     is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
     is_template         BOOLEAN     NOT NULL DEFAULT FALSE,
 
-    UNIQUE (COALESCE(company_id, 0::BIGINT), country_code, code)
 );
+
+CREATE UNIQUE INDEX uq_asset_categories
+    ON finance.asset_categories (COALESCE(company_id, 0::BIGINT), country_code, code);
 
 -- SUNAT Perú — categorías con tasas máximas (Artículo 22 LIR)
 INSERT INTO finance.asset_categories
