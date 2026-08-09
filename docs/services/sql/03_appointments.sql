@@ -374,7 +374,7 @@ SELECT
     a.status,
     a.client_notes,
     -- Cliente
-    c.first_name || ' ' || c.last_name AS client_name,
+    c.trade_name AS client_name,
     c.phone AS client_phone,
     -- Servicios (concatenados)
     STRING_AGG(
@@ -398,7 +398,7 @@ WHERE a.scheduled_date = CURRENT_DATE
 GROUP BY a.id, a.company_id, a.appointment_number, a.scheduled_date,
          a.scheduled_start, a.scheduled_end, a.scheduled_duration_min,
          a.actual_start, a.delay_min, a.status, a.client_notes,
-         c.first_name, c.last_name, c.phone, a.deposit_amount
+         c.trade_name, c.phone, a.deposit_amount
 ORDER BY a.scheduled_start;
 
 COMMENT ON VIEW services.daily_schedule IS 'Agenda del día: todas las citas con cliente, servicios, personal y precio total. Vista principal del salón.';
