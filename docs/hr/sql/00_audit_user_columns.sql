@@ -1138,3 +1138,28 @@ ALTER TABLE projects.time_entries
 
 ALTER TABLE projects.project_status_log
     ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+-- ── SCHEMA SURVEYS ─────────────────────────────────────────
+
+-- Tablas mutables
+ALTER TABLE surveys.survey_templates
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE surveys.survey_questions
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE surveys.survey_invitations
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+-- Tablas inmutables
+ALTER TABLE surveys.survey_question_options
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE surveys.survey_responses
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE surveys.survey_response_answers
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);

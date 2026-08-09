@@ -70,15 +70,15 @@ echo ""
 # ── Reset opcional ───────────────────────────────────────────
 if [ "$RESET" = true ]; then
   echo -e "${YELLOW}⚠  Modo --reset: eliminando todos los schemas...${NC}"
-  psql "$DATABASE_URL" -c "
-    DROP SCHEMA IF EXISTS projects   CASCADE;
-    DROP SCHEMA IF EXISTS services   CASCADE;
-    DROP SCHEMA IF EXISTS production CASCADE;
-    DROP SCHEMA IF EXISTS finance   CASCADE;
-    DROP SCHEMA IF EXISTS sales     CASCADE;
-    DROP SCHEMA IF EXISTS logistics CASCADE;
-    DROP SCHEMA IF EXISTS hr        CASCADE;
-  "
+  # Cada DROP en su propia transacción para no superar max_locks_per_transaction
+  psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS surveys    CASCADE;" --quiet
+  psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS projects   CASCADE;" --quiet
+  psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS services   CASCADE;" --quiet
+  psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS production CASCADE;" --quiet
+  psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS finance    CASCADE;" --quiet
+  psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS sales      CASCADE;" --quiet
+  psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS logistics  CASCADE;" --quiet
+  psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS hr         CASCADE;" --quiet
   echo -e "${GREEN}✓ Schemas eliminados${NC}"
   echo ""
 fi
@@ -152,6 +152,15 @@ bash "${ROOT_DIR}/docs/projects/sql/run_projects.sh"
 
 echo ""
 
+# ── Módulo Surveys ───────────────────────────────────────────
+echo -e "${BOLD}▶  Módulo: Surveys (Encuestas de Satisfacción)${NC}"
+echo -e "   NPS, CSAT, CES — vinculado a citas, órdenes y proyectos"
+echo ""
+
+bash "${ROOT_DIR}/docs/surveys/sql/run_surveys.sh"
+
+echo ""
+
 # ── Auditoría global: created_by / updated_by en todas las tablas ────────────
 echo -e "${BOLD}▶  Migración: columnas de auditoría (created_by / updated_by)${NC}"
 echo -e "   Todas las tablas en todos los schemas"
@@ -179,7 +188,7 @@ echo ""
 psql "$DATABASE_URL" -t -A -c "
   SELECT '  ' || table_schema || ': ' || COUNT(*) || ' tablas'
   FROM information_schema.tables
-  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects')
+  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys')
     AND table_type = 'BASE TABLE'
   GROUP BY table_schema
   ORDER BY table_schema;
@@ -189,7 +198,7 @@ echo -e "  Total:"
 psql "$DATABASE_URL" -t -A -c "
   SELECT '  ' || COUNT(*) || ' tablas en total'
   FROM information_schema.tables
-  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects')
+  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys')
     AND table_type = 'BASE TABLE';
 "
 echo ""

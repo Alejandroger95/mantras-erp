@@ -19,11 +19,12 @@ A modular, multi-tenant ERP system built on PostgreSQL — designed to work for 
 | Production | 60 | ✅ Complete |
 | Services | 19 | ✅ Complete |
 | Projects | 10 | ✅ Complete |
+| Surveys | 6 | ✅ Complete |
 | MRP / Planning | — | 🔜 Planned |
 | CRM | — | 🔜 Planned |
 | Payroll Engine | — | 🔜 Planned |
 
-**Total: 342 tables across 7 schemas**
+**Total: 348 tables across 8 schemas**
 
 ---
 
@@ -141,6 +142,25 @@ Project-based business management with 10 tables + 3 views — designed for cons
 
 ---
 
+## Surveys Module
+
+Customer satisfaction measurement with 6 tables + 4 views — works across all modules:
+
+- **NPS** (Net Promoter Score, 0–10): promoter / passive / detractor classification, auto-computed
+- **CSAT** (1–5 stars): per-question and averaged across the response
+- **CES** (Customer Effort Score, 1–7) and custom numeric scales
+- Free-text questions, multiple-choice with configurable options (including "Other: ___")
+- Boolean (yes/no) questions with conditional display logic (e.g., show follow-up only if NPS ≤ 6)
+- Survey templates per company: trigger on appointment completion, sales order delivery, project close, or manual send
+- Configurable send delay (e.g., 1 hour after the appointment), link expiry (days), and auto-reminder rules
+- Invitations with unique tokens, delivery status tracking (sent / delivered / read / failed) and WhatsApp Business API integration-ready
+- Responses are immutable; NPS score and CSAT avg are denormalized on the response header for fast dashboards
+- Views: `nps_summary_view` (NPS score by month), `csat_summary_view` (CSAT avg + satisfied %), `response_detail_view` (full response with client + source event), `pending_invitations_view` (who hasn't responded + reminder eligibility)
+- Linked to: `services.appointments`, `sales.sales_orders`, `projects.projects`, `sales.invoices`
+- **Differentiators:** 📊 NPS auto-category · ⭐ CSAT avg · 🔗 Multi-module triggers · 📱 WhatsApp-ready · ⏰ Configurable delays & reminders
+
+---
+
 ## Services Module
 
 Appointment-based business management with 19 tables + 5 views — ideal for beauty salons, spas, clinics, gyms, veterinaries and any service business:
@@ -163,7 +183,7 @@ Appointment-based business management with 19 tables + 5 views — ideal for bea
 ## Running the full ERP
 
 ```bash
-# Install all 7 modules in order (takes ~20s)
+# Install all 8 modules in order (takes ~25s)
 ./run_all.sh
 
 # Full reset + reinstall from scratch
@@ -177,6 +197,7 @@ bash docs/finance/sql/run_finance.sh
 bash docs/production/sql/run_production.sh
 bash docs/services/sql/run_services.sh
 bash docs/projects/sql/run_projects.sh
+bash docs/surveys/sql/run_surveys.sh
 ```
 
 Requirements: PostgreSQL running locally · `psql` in PATH · database `mantrasdb` created.
@@ -218,13 +239,19 @@ docs/
       04_ratings_kpis.sql         ← Calificaciones + historial cliente + vistas KPI
       run_services.sh
   projects/
-    sql/                          ← 4 SQL files + run_projects.sh
+    sql/                          ← 5 SQL files + run_projects.sh
       01_projects.sql             ← Tipos, proyectos, fases, hitos
       02_tasks_team.sql           ← Equipo, tareas, time entries (IMMUTABLE)
       03_documents_risks.sql      ← Documentos + registro de riesgos + log de estados
       04_views_kpis.sql           ← Vistas: dashboard, utilización equipo, pipeline de facturación
+      05_hr_bridge.sql            ← Puente HR: carga por empleado/departamento, sobrecarga
       run_projects.sh
-run_all.sh                        ← Master installer (all 7 modules)
+  surveys/
+    sql/                          ← 2 SQL files + run_surveys.sh
+      01_surveys.sql              ← Schema, templates, preguntas y opciones
+      02_responses.sql            ← Invitaciones, respuestas, respuestas por pregunta + vistas NPS/CSAT
+      run_surveys.sh
+run_all.sh                        ← Master installer (all 8 modules)
 ```
 
 ---
