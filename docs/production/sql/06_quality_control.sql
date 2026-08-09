@@ -117,12 +117,9 @@ CREATE TABLE production.area_process_log (
     target_duration_min NUMERIC(10,2),
 
     -- ¿Hay demora vs objetivo?
-    is_delayed          BOOLEAN     GENERATED ALWAYS AS (
-        CASE WHEN exited_at IS NULL AND target_duration_min IS NOT NULL
-                  AND EXTRACT(EPOCH FROM (NOW() - entered_at)) / 60 > target_duration_min
-             THEN TRUE
-             ELSE FALSE END
-    ) STORED,
+    -- Nota: NOW() no es inmutable → no puede ser GENERATED.
+    -- Se calcula en la view area_dashboard con NOW() en tiempo de consulta.
+    is_delayed          BOOLEAN     NOT NULL DEFAULT FALSE,
 
     area_status         VARCHAR(20) NOT NULL DEFAULT 'active',
     -- active    : el proceso está actualmente en esta área
@@ -547,8 +544,12 @@ SELECT
     a.color_hex,
     -- Órdenes actualmente en esta área
     COUNT(apl.id) FILTER (WHERE apl.area_status = 'active') AS active_orders,
-    -- Órdenes demoradas
-    COUNT(apl.id) FILTER (WHERE apl.is_delayed = TRUE AND apl.area_status = 'active') AS delayed_orders,
+    -- Órdenes demoradas (calculado en tiempo de consulta con NOW())
+    COUNT(apl.id) FILTER (
+        WHERE apl.area_status = 'active'
+          AND apl.target_duration_min IS NOT NULL
+          AND EXTRACT(EPOCH FROM (NOW() - apl.entered_at)) / 60 > apl.target_duration_min
+    ) AS delayed_orders,
     -- Tiempo promedio en el área (últimas 24h)
     ROUND(AVG(apl.duration_in_area_min) FILTER (
         WHERE apl.area_status = 'completed'
