@@ -46,6 +46,7 @@ export async function buildApp() {
   await app.register(import('./modules/catalog/routes.js'),      { prefix: '/api/v1/catalog' })
   await app.register(import('./modules/appointments/routes.js'), { prefix: '/api/v1/appointments' })
   await app.register(import('./modules/dashboard/routes.js'),    { prefix: '/api/v1/dashboard' })
+  await app.register(import('./modules/hr/routes.js'),           { prefix: '/api/v1/hr' })
 
   return app
 }

@@ -20,15 +20,20 @@ export const sql = postgres(config.DATABASE_URL, {
       serialize: (x: number) => x.toString(),
       parse:     (x: string) => parseFloat(x),
     },
+    // PostgreSQL BIGINT/BIGSERIAL (OID 20) — postgres.js puede devolverlo
+    // como BigInt o string según la versión. Lo normalizamos a JS number.
+    // (IDs no superan 2^53, así que number es seguro)
+    bigint: {
+      to:        20,
+      from:      [20],
+      serialize: (x: number) => x.toString(),
+      parse:     (x: string) => Number(x),
+    },
   },
 
   transform: {
     // snake_case en DB → camelCase en TypeScript automáticamente
     column: postgres.toCamel,
-    // PostgreSQL BIGINT / BIGSERIAL → JS BigInt por defecto, pero
-    // JSON.stringify no soporta BigInt → lo convertimos a number.
-    // (IDs no superan 2^53, así que number es seguro)
-    value: (v: unknown) => typeof v === 'bigint' ? Number(v) : v,
   },
 })
 
