@@ -71,6 +71,9 @@ echo ""
 if [ "$RESET" = true ]; then
   echo -e "${YELLOW}⚠  Modo --reset: eliminando todos los schemas...${NC}"
   # Cada DROP en su propia transacción para no superar max_locks_per_transaction
+  psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS mrp        CASCADE;" --quiet
+  psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS payroll    CASCADE;" --quiet
+  psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS crm        CASCADE;" --quiet
   psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS surveys    CASCADE;" --quiet
   psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS projects   CASCADE;" --quiet
   psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS services   CASCADE;" --quiet
@@ -161,6 +164,33 @@ bash "${ROOT_DIR}/docs/surveys/sql/run_surveys.sh"
 
 echo ""
 
+# ── Módulo CRM ───────────────────────────────────────────────
+echo -e "${BOLD}▶  Módulo: CRM (Customer Relationship Management)${NC}"
+echo -e "   Pipelines, leads, oportunidades, actividades"
+echo ""
+
+bash "${ROOT_DIR}/docs/crm/sql/run_crm.sh"
+
+echo ""
+
+# ── Módulo Payroll Engine ────────────────────────────────────
+echo -e "${BOLD}▶  Módulo: Payroll Engine (Motor de Nómina)${NC}"
+echo -e "   Reglas de cálculo, estructuras salariales, boletas de pago"
+echo ""
+
+bash "${ROOT_DIR}/docs/payroll/sql/run_payroll.sh"
+
+echo ""
+
+# ── Módulo MRP ───────────────────────────────────────────────
+echo -e "${BOLD}▶  Módulo: MRP (Material Requirements Planning)${NC}"
+echo -e "   Parámetros, pronósticos, runs y órdenes planificadas"
+echo ""
+
+bash "${ROOT_DIR}/docs/mrp/sql/run_mrp.sh"
+
+echo ""
+
 # ── Auditoría global: created_by / updated_by en todas las tablas ────────────
 echo -e "${BOLD}▶  Migración: columnas de auditoría (created_by / updated_by)${NC}"
 echo -e "   Todas las tablas en todos los schemas"
@@ -188,7 +218,7 @@ echo ""
 psql "$DATABASE_URL" -t -A -c "
   SELECT '  ' || table_schema || ': ' || COUNT(*) || ' tablas'
   FROM information_schema.tables
-  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys')
+  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys', 'crm', 'payroll', 'mrp')
     AND table_type = 'BASE TABLE'
   GROUP BY table_schema
   ORDER BY table_schema;
@@ -198,7 +228,7 @@ echo -e "  Total:"
 psql "$DATABASE_URL" -t -A -c "
   SELECT '  ' || COUNT(*) || ' tablas en total'
   FROM information_schema.tables
-  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys')
+  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys', 'crm', 'payroll', 'mrp')
     AND table_type = 'BASE TABLE';
 "
 echo ""

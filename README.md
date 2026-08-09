@@ -20,11 +20,11 @@ A modular, multi-tenant ERP system built on PostgreSQL — designed to work for 
 | Services | 19 | ✅ Complete |
 | Projects | 10 | ✅ Complete |
 | Surveys | 6 | ✅ Complete |
-| MRP / Planning | — | 🔜 Planned |
-| CRM | — | 🔜 Planned |
-| Payroll Engine | — | 🔜 Planned |
+| CRM | 6 | ✅ Complete |
+| Payroll Engine | 8 | ✅ Complete |
+| MRP / Planning | 6 | ✅ Complete |
 
-**Total: 348 tables across 8 schemas**
+**Total: 368 tables across 11 schemas**
 
 ---
 
@@ -142,6 +142,48 @@ Project-based business management with 10 tables + 3 views — designed for cons
 
 ---
 
+## CRM Module
+
+Sales pipeline management with 6 tables + 2 views:
+
+- Configurable pipelines with stages and win-probability per stage
+- Leads (unqualified prospects) with source tracking, lead score, and disqualification flow
+- Opportunities with expected revenue, weighted revenue (auto-computed), and expected close date
+- Multi-contact support per opportunity with decision-maker roles
+- Activity log: calls, emails, meetings, demos, WhatsApp, notes with outcome tracking
+- Linked to `sales.quotations` and `sales.sales_orders` when opportunity is won
+- Views: `pipeline_view` (open opps by stage + sales rep), `sales_funnel_view` (win rate + avg days to close per stage)
+
+---
+
+## Payroll Engine Module
+
+Payroll calculation engine with 8 tables + 2 views — extends the basic HR payroll tables:
+
+- Rule categories: earnings, deductions, employer contributions, informational
+- Calculation rules: fixed amount, % of basic, % of another rule, or free formula — covers Peru: ESSALUD (9%), AFP, ONP (13%), 5ta categoría
+- Salary structures: group rules by contract type (e.g., "Planilla Perú", "Recibo por Honorarios")
+- Payroll runs: draft → computed → validated → paid workflow with period reference
+- Run lines: immutable computed values per employee per rule (full audit trail)
+- Payslips with day-level tracking (days worked, absent) and payment method/bank account
+- Payslip lines: snapshot of rule name/code at time of payment (never changes)
+- Views: `run_summary_view` (totals + employer cost per run), `slip_detail_view` (per-employee detail with department/position)
+
+---
+
+## MRP Module
+
+Material Requirements Planning with 6 tables + 2 views:
+
+- Per-product planning parameters: reorder point, min/max stock, MOQ, lead time, supply method (buy/manufacture)
+- Demand forecasts with accuracy tracking (forecast vs actual, auto-computed %)
+- MRP runs with configurable planning horizon; tracks products analyzed and orders created
+- Planned orders (purchase or manufacture) with date_required and date_planned_start (date_required − lead_time)
+- Material requirements breakdown per planned order, with is_covered and qty_to_supply (GENERATED)
+- Views: `coverage_view` (stock level + days of coverage + replenishment signal), `purchase_suggestions_view` (what to buy, by when, from whom)
+
+---
+
 ## Surveys Module
 
 Customer satisfaction measurement with 6 tables + 4 views — works across all modules:
@@ -183,7 +225,7 @@ Appointment-based business management with 19 tables + 5 views — ideal for bea
 ## Running the full ERP
 
 ```bash
-# Install all 8 modules in order (takes ~25s)
+# Install all 11 modules in order (takes ~35s)
 ./run_all.sh
 
 # Full reset + reinstall from scratch
@@ -198,6 +240,9 @@ bash docs/production/sql/run_production.sh
 bash docs/services/sql/run_services.sh
 bash docs/projects/sql/run_projects.sh
 bash docs/surveys/sql/run_surveys.sh
+bash docs/crm/sql/run_crm.sh
+bash docs/payroll/sql/run_payroll.sh
+bash docs/mrp/sql/run_mrp.sh
 ```
 
 Requirements: PostgreSQL running locally · `psql` in PATH · database `mantrasdb` created.
@@ -251,7 +296,19 @@ docs/
       01_surveys.sql              ← Schema, templates, preguntas y opciones
       02_responses.sql            ← Invitaciones, respuestas, respuestas por pregunta + vistas NPS/CSAT
       run_surveys.sh
-run_all.sh                        ← Master installer (all 8 modules)
+  crm/
+    sql/                          ← 1 SQL file + run_crm.sh
+      01_crm.sql                  ← Pipelines, stages, leads, opportunities, contacts, activities + vistas
+      run_crm.sh
+  payroll/
+    sql/                          ← 1 SQL file + run_payroll.sh
+      01_payroll_engine.sql       ← Reglas, estructuras, runs, boletas + vistas
+      run_payroll.sh
+  mrp/
+    sql/                          ← 1 SQL file + run_mrp.sh
+      01_mrp.sql                  ← Parámetros, pronósticos, runs, órdenes planificadas + vistas
+      run_mrp.sh
+run_all.sh                        ← Master installer (all 11 modules)
 ```
 
 ---
