@@ -77,8 +77,7 @@ CREATE TABLE finance.asset_categories (
     -- código de categoría SUNAT para declaración
 
     is_active           BOOLEAN     NOT NULL DEFAULT TRUE,
-    is_template         BOOLEAN     NOT NULL DEFAULT FALSE,
-
+    is_template         BOOLEAN     NOT NULL DEFAULT FALSE
 );
 
 CREATE UNIQUE INDEX uq_asset_categories

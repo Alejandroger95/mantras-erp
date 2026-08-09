@@ -108,8 +108,7 @@ CREATE TABLE finance.tax_periods (
     -- PDT: 621 (IGV+IR), 617 (IGV Otras), 693 (Renta Anual), etc.
 
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX uq_tax_periods
