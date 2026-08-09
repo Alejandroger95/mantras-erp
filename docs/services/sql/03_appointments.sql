@@ -402,3 +402,12 @@ GROUP BY a.id, a.company_id, a.appointment_number, a.scheduled_date,
 ORDER BY a.scheduled_start;
 
 COMMENT ON VIEW services.daily_schedule IS 'Agenda del día: todas las citas con cliente, servicios, personal y precio total. Vista principal del salón.';
+
+-- ============================================================
+-- FK diferida: sales.promo_code_redemptions → services.appointments
+-- Se agrega aquí porque sales carga antes que services.
+-- ============================================================
+ALTER TABLE sales.promo_code_redemptions
+    ADD CONSTRAINT fk_pcr_appointment
+        FOREIGN KEY (appointment_id)
+        REFERENCES services.appointments(id);

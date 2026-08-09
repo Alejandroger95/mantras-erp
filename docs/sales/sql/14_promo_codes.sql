@@ -139,7 +139,8 @@ CREATE TABLE sales.promo_code_redemptions (
 
     sales_order_id      BIGINT      REFERENCES sales.sales_orders(id),
     invoice_id          BIGINT      REFERENCES sales.invoices(id),
-    appointment_id      BIGINT      REFERENCES services.appointments(id),
+    appointment_id      BIGINT,
+    -- FK lógica → services.appointments(id); se agrega en 03_appointments.sql
     pos_transaction_id  BIGINT      REFERENCES sales.pos_transactions(id),
 
     -- Monto descontado en este canje
