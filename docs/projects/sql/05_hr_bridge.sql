@@ -71,7 +71,7 @@ SELECT
     e.company_id,
     per.first_name || ' ' || per.last_name                  AS employee_name,
     d.name                                                  AS department_name,
-    pos.title                                               AS position_title,
+    pos.name                                               AS position_title,
 
     -- Proyecto
     p.id                                                    AS project_id,
@@ -254,7 +254,7 @@ SELECT
     e.company_id,
     per.first_name || ' ' || per.last_name                  AS employee_name,
     d.name                                                  AS department_name,
-    pos.title                                               AS position_title,
+    pos.name                                               AS position_title,
 
     -- Tareas activas asignadas hoy
     COUNT(pt.id)                                            AS active_tasks,
@@ -322,7 +322,7 @@ WHERE e.is_active = TRUE
 GROUP BY
     e.id, e.company_id,
     per.first_name, per.last_name,
-    d.name, pos.title
+    d.name, pos.name
 ORDER BY overload_risk DESC, overdue_tasks DESC, active_tasks DESC;
 
 COMMENT ON VIEW projects.employee_task_load_view IS
