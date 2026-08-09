@@ -119,6 +119,23 @@ bash "${ROOT_DIR}/docs/finance/sql/run_finance.sh" "$DATABASE_URL"
 
 echo ""
 
+# ── Auditoría global: created_by / updated_by en todas las tablas ────────────
+echo -e "${BOLD}▶  Migración: columnas de auditoría (created_by / updated_by)${NC}"
+echo -e "   246 tablas en hr / logistics / sales / finance"
+echo ""
+
+psql "$DATABASE_URL" \
+    --single-transaction \
+    --set ON_ERROR_STOP=1 \
+    -f "${ROOT_DIR}/docs/hr/sql/00_audit_user_columns.sql" \
+    --quiet && \
+  echo -e "   ${GREEN}✓${NC} OK" || {
+    echo -e "   ${RED}✗ ERROR en 00_audit_user_columns.sql${NC}"
+    exit 1
+  }
+
+echo ""
+
 # ── Resumen final ────────────────────────────────────────────
 echo -e "${BOLD}${GREEN}================================================${NC}"
 echo -e "${BOLD}${GREEN}  🎉 mantrasdb instalado correctamente${NC}"

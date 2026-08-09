@@ -92,7 +92,6 @@ FILES=(
   "25_trainings.sql"
   "26_documents.sql"
   "99_system_users_audit.sql"
-  "00_audit_user_columns.sql"
 )
 
 TOTAL=${#FILES[@]}
