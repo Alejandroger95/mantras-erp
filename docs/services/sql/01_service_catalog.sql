@@ -297,3 +297,15 @@ CREATE TABLE services.service_resource_requirements (
 );
 
 COMMENT ON TABLE services.service_resource_requirements IS 'Qué recursos físicos necesita cada servicio. Limita la capacidad simultánea de citas.';
+
+-- ============================================================
+-- FKs diferidas: sales.promo_codes → services.services
+-- Se agregan aquí porque sales carga antes que services.
+-- ============================================================
+ALTER TABLE sales.promo_codes
+    ADD CONSTRAINT fk_pc_free_service
+        FOREIGN KEY (free_service_id)
+        REFERENCES services.services(id),
+    ADD CONSTRAINT fk_pc_applies_service
+        FOREIGN KEY (applies_to_service_id)
+        REFERENCES services.services(id);

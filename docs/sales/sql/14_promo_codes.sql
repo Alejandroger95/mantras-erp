@@ -48,7 +48,9 @@ CREATE TABLE sales.promo_codes (
 
     -- Ítem o servicio gratis
     free_product_id     BIGINT      REFERENCES logistics.products(id),
-    free_service_id     BIGINT      REFERENCES services.services(id),
+    free_service_id     BIGINT,
+    -- FK lógica → services.services(id); se agrega vía ALTER TABLE
+    -- en docs/services/sql/01_service_catalog.sql (services carga después de sales)
 
     -- ── Vinculo con promoción existente ───────────────────────
     -- Si se vincula a una promotion, se aplica esa lógica
@@ -68,7 +70,9 @@ CREATE TABLE sales.promo_codes (
 
     applies_to_category_id  BIGINT  REFERENCES logistics.product_categories(id),
     applies_to_product_id   BIGINT  REFERENCES logistics.products(id),
-    applies_to_service_id   BIGINT  REFERENCES services.services(id),
+    applies_to_service_id   BIGINT,
+    -- FK lógica → services.services(id); se agrega vía ALTER TABLE
+    -- en docs/services/sql/01_service_catalog.sql (services carga después de sales)
 
     -- ── Límites de uso ────────────────────────────────────────
     max_uses_total      INTEGER,
