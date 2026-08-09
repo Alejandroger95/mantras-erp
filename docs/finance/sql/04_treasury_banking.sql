@@ -434,8 +434,11 @@ CREATE TABLE finance.exchange_rates (
     notes               TEXT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    UNIQUE (COALESCE(company_id, 0::BIGINT), rate_date, from_currency, to_currency, rate_source)
 );
+
+-- UNIQUE con expresión (COALESCE) requiere índice único, no constraint de tabla
+CREATE UNIQUE INDEX uq_exchange_rates
+    ON finance.exchange_rates (COALESCE(company_id, 0::BIGINT), rate_date, from_currency, to_currency, rate_source);
 
 CREATE INDEX idx_exrate_date     ON finance.exchange_rates (rate_date);
 CREATE INDEX idx_exrate_pair     ON finance.exchange_rates (from_currency, to_currency);
