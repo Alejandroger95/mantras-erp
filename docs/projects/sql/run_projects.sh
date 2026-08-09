@@ -86,7 +86,8 @@ echo ""
 run_sql "01_projects.sql"        "01 — Schema, tipos de proyecto, proyectos, fases e hitos"
 run_sql "02_tasks_team.sql"      "02 — Miembros del equipo, tareas y registro de horas"
 run_sql "03_documents_risks.sql" "03 — Documentos, riesgos y log de estados"
-run_sql "04_views_kpis.sql"      "04 — Vistas analíticas y KPIs"
+run_sql "04_views_kpis.sql"      "04 — Vistas analíticas y KPIs (dashboard, utilización, billing)"
+run_sql "05_hr_bridge.sql"       "05 — Puente HR: carga por empleado/departamento, sobrecarga"
 
 # ── Resultado ────────────────────────────────────────────────
 echo ""

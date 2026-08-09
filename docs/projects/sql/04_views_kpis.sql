@@ -305,3 +305,201 @@ HAVING SUM(te.billable_amount) > 0;
 
 COMMENT ON VIEW projects.billing_pipeline_view IS
 'Pipeline de facturación: hitos alcanzados sin facturar (billing milestones) y horas T&M pendientes de factura. Una fila por fuente de facturación.';
+
+-- ============================================================
+-- 4. TASK PERFORMANCE VIEW
+-- Por tarea: responsable, planificado vs real, mora y puntualidad.
+-- ============================================================
+CREATE OR REPLACE VIEW projects.task_performance_view AS
+SELECT
+    pt.id                                               AS task_id,
+    pt.company_id,
+    pt.project_id,
+    p.code                                              AS project_code,
+    p.name                                              AS project_name,
+    p.is_internal,
+    pt.phase_id,
+    ph.name                                             AS phase_name,
+    pt.task_number,
+    pt.name                                             AS task_name,
+    pt.status,
+    pt.priority,
+    pt.story_points,
+
+    -- Responsable
+    pt.assigned_to_id,
+    per.first_name || ' ' || per.last_name             AS assigned_to_name,
+
+    -- Fechas planificadas vs reales
+    pt.planned_start,
+    pt.planned_end,
+    pt.actual_start,
+    pt.actual_end,
+
+    -- ¿Está en mora? (tarea activa con planned_end vencido)
+    CASE
+        WHEN pt.status NOT IN ('done', 'cancelled')
+             AND pt.planned_end IS NOT NULL
+             AND pt.planned_end < CURRENT_DATE
+        THEN TRUE
+        ELSE FALSE
+    END                                                 AS is_overdue,
+
+    -- Días de diferencia (positivo = tarde, negativo = anticipado)
+    -- Si ya se entregó: real - planificado
+    -- Si aún no se entrega y está vencido: días transcurridos desde vencimiento
+    CASE
+        WHEN pt.actual_end IS NOT NULL AND pt.planned_end IS NOT NULL
+        THEN (pt.actual_end - pt.planned_end)
+        WHEN pt.status NOT IN ('done', 'cancelled')
+             AND pt.planned_end IS NOT NULL
+             AND pt.planned_end < CURRENT_DATE
+        THEN (CURRENT_DATE - pt.planned_end)
+        ELSE NULL
+    END                                                 AS delay_days,
+
+    -- ¿Entregó a tiempo? TRUE/FALSE/NULL(sin datos suficientes)
+    CASE
+        WHEN pt.actual_end IS NOT NULL AND pt.planned_end IS NOT NULL
+        THEN pt.actual_end <= pt.planned_end
+        WHEN pt.status NOT IN ('done', 'cancelled')
+             AND pt.planned_end IS NOT NULL
+             AND pt.planned_end >= CURRENT_DATE
+        THEN TRUE   -- aún en plazo, cuenta como "a tiempo" por ahora
+        WHEN pt.status = 'done'
+        THEN NULL   -- completada pero sin fecha real registrada
+        ELSE FALSE
+    END                                                 AS delivered_on_time,
+
+    -- Horas estimadas vs reales
+    pt.estimated_hours,
+    COALESCE(te_agg.actual_hours, 0)                   AS actual_hours_logged,
+    CASE
+        WHEN pt.estimated_hours > 0
+        THEN ROUND(COALESCE(te_agg.actual_hours, 0) / pt.estimated_hours * 100, 2)
+        ELSE NULL
+    END                                                 AS hours_consumed_pct,
+
+    pt.created_at
+
+FROM projects.project_tasks pt
+INNER JOIN projects.projects p
+    ON p.id = pt.project_id
+LEFT JOIN projects.project_phases ph
+    ON ph.id = pt.phase_id
+LEFT JOIN hr.employees e
+    ON e.id = pt.assigned_to_id
+LEFT JOIN hr.persons per
+    ON per.id = e.person_id
+LEFT JOIN (
+    SELECT task_id, SUM(hours) AS actual_hours
+    FROM projects.time_entries
+    WHERE task_id IS NOT NULL
+    GROUP BY task_id
+) te_agg ON te_agg.task_id = pt.id
+WHERE pt.status != 'cancelled'
+ORDER BY
+    -- primero las tareas vencidas
+    CASE
+        WHEN pt.status NOT IN ('done','cancelled')
+             AND pt.planned_end IS NOT NULL
+             AND pt.planned_end < CURRENT_DATE
+        THEN 0 ELSE 1
+    END,
+    pt.planned_end NULLS LAST;
+
+COMMENT ON VIEW projects.task_performance_view IS
+'Por tarea: responsable asignado, fechas planificadas vs reales, mora activa (is_overdue), días de retraso o adelanto (delay_days), entrega a tiempo (delivered_on_time) y horas consumidas vs estimadas.';
+
+-- ============================================================
+-- 5. RESPONSIBLE PERFORMANCE VIEW
+-- KPIs de puntualidad y entrega por empleado × proyecto.
+-- Aplica a proyectos internos (is_internal=TRUE) y externos.
+-- ============================================================
+CREATE OR REPLACE VIEW projects.responsible_performance_view AS
+SELECT
+    pt.assigned_to_id,
+    per.first_name || ' ' || per.last_name             AS employee_name,
+    pt.company_id,
+    p.id                                               AS project_id,
+    p.code                                             AS project_code,
+    p.name                                             AS project_name,
+    p.is_internal,
+
+    -- Tareas asignadas a esta persona en este proyecto
+    COUNT(pt.id)                                       AS total_tasks,
+    COUNT(pt.id) FILTER (WHERE pt.status = 'done')    AS completed_tasks,
+    COUNT(pt.id) FILTER (
+        WHERE pt.status IN ('todo','in_progress','review')
+    )                                                  AS pending_tasks,
+
+    -- Puntualidad en entregas ya completadas
+    COUNT(pt.id) FILTER (
+        WHERE pt.actual_end IS NOT NULL
+          AND pt.planned_end IS NOT NULL
+          AND pt.actual_end <= pt.planned_end
+    )                                                  AS tasks_on_time,
+    COUNT(pt.id) FILTER (
+        WHERE pt.actual_end IS NOT NULL
+          AND pt.planned_end IS NOT NULL
+          AND pt.actual_end > pt.planned_end
+    )                                                  AS tasks_late,
+
+    -- Tareas activas actualmente vencidas
+    COUNT(pt.id) FILTER (
+        WHERE pt.status NOT IN ('done','cancelled')
+          AND pt.planned_end IS NOT NULL
+          AND pt.planned_end < CURRENT_DATE
+    )                                                  AS tasks_currently_overdue,
+
+    -- % de entrega a tiempo (sobre las que tienen fecha planificada y real)
+    ROUND(
+        COUNT(pt.id) FILTER (
+            WHERE pt.actual_end IS NOT NULL
+              AND pt.planned_end IS NOT NULL
+              AND pt.actual_end <= pt.planned_end
+        )::NUMERIC /
+        NULLIF(COUNT(pt.id) FILTER (
+            WHERE pt.actual_end IS NOT NULL
+              AND pt.planned_end IS NOT NULL
+        ), 0) * 100
+    , 2)                                               AS on_time_delivery_pct,
+
+    -- Promedio de días de retraso en tareas entregadas tarde
+    ROUND(AVG(
+        pt.actual_end - pt.planned_end
+    ) FILTER (
+        WHERE pt.actual_end IS NOT NULL
+          AND pt.planned_end IS NOT NULL
+          AND pt.actual_end > pt.planned_end
+    ), 1)                                              AS avg_delay_days,
+
+    -- Horas registradas en este proyecto
+    ROUND(COALESCE(SUM(te_agg.actual_hours), 0), 2)   AS total_hours_logged
+
+FROM projects.project_tasks pt
+INNER JOIN projects.projects p
+    ON p.id = pt.project_id
+INNER JOIN hr.employees e
+    ON e.id = pt.assigned_to_id
+INNER JOIN hr.persons per
+    ON per.id = e.person_id
+LEFT JOIN (
+    SELECT task_id, SUM(hours) AS actual_hours
+    FROM projects.time_entries
+    WHERE task_id IS NOT NULL
+    GROUP BY task_id
+) te_agg ON te_agg.task_id = pt.id
+WHERE pt.assigned_to_id IS NOT NULL
+  AND pt.status != 'cancelled'
+GROUP BY
+    pt.assigned_to_id,
+    per.first_name, per.last_name,
+    pt.company_id,
+    p.id, p.code, p.name, p.is_internal
+ORDER BY
+    tasks_currently_overdue DESC,
+    on_time_delivery_pct ASC NULLS LAST;
+
+COMMENT ON VIEW projects.responsible_performance_view IS
+'KPIs de puntualidad por empleado × proyecto: tareas completadas, en plazo, tarde, actualmente vencidas y porcentaje de entrega a tiempo. Aplica a proyectos internos y externos.';
