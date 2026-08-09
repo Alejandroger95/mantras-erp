@@ -432,8 +432,7 @@ CREATE TABLE finance.exchange_rates (
     -- TRUE = tipo oficial del banco central / SBS
 
     notes               TEXT,
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- UNIQUE con expresión (COALESCE) requiere índice único, no constraint de tabla
