@@ -25,8 +25,9 @@ A modular, multi-tenant ERP system built on PostgreSQL — designed to work for 
 | MRP / Planning | 6 | ✅ Complete |
 | Venues | 11 | ✅ Complete |
 | Clinic | 18 | ✅ Complete |
+| Gifts | 7 | ✅ Complete |
 
-**Total: 397 tables across 13 schemas**
+**Total: 404 tables across 14 schemas**
 
 ---
 
@@ -173,6 +174,22 @@ Payroll calculation engine with 8 tables + 2 views — extends the basic HR payr
 
 ---
 
+## Gifts Module
+
+Tarjetas de consumo, concursos y reconocimientos al personal con 7 tablas + 3 vistas:
+
+- **Gift cards** (`gift_cards`): monetarias (S/100 de saldo) o vales de servicio específico ("1 tinte completo gratis"). Origen rastreable: vendida en caja, premio de concurso, regalo promocional, referido, o reconocimiento a empleada. QR/código único, vencimiento opcional, saldo en tiempo real.
+- **Transacciones INMUTABLES** (`gift_card_transactions`): cada uso, recarga o vencimiento queda registrado con saldo_después (snapshot). Auditoría completa del ciclo de vida.
+- **Campañas de premios** (`prize_campaigns`): concursos de Instagram/TikTok, sorteos en tienda, campañas de cumpleañeras, referidos. Define mecánica, plataforma, fechas, presupuesto y términos.
+- **Premios de campaña** (`campaign_prizes`): cada campaña puede tener múltiples premios por lugar (1er = tinte+tratamiento, 2do = manicure). Tipos: gift card monetaria, vale de servicio, paquete de productos, cupón de descuento.
+- **Ganadoras** (`prize_winners`): soporta clientas registradas y personas nuevas (leads de redes sociales con @instagram). Estado completo: anunciada → contactada → canjeó. Rastrea cuántas ganadoras se convierten en clientas nuevas.
+- **Programas de reconocimiento** (`reward_programs`): Empleada del Mes, Canasta Navideña, Bono por Meta de Ventas, Regalo de Cumpleaños. Con criterios, frecuencia y presupuesto.
+- **Premios al personal** (`employee_rewards`): bono en efectivo, canasta, gift card, día libre, producto, experiencia. Registra razón del premio, período evaluado, entrega confirmada y si se anunció públicamente.
+- Views: `gift_card_balance_view` (saldo actual + alertas de vencimiento próximo), `campaign_results_view` (tasa de canje + costo real vs presupuesto + nuevas clientas captadas), `employee_recognition_view` (historial de reconocimientos + valor total recibido por empleada)
+- **Differentiators:** 🎁 Gift cards monetarias + vales de servicio · 📱 Concursos de redes con @instagram · 🏆 Ganadoras → leads → clientas · 🎄 Canasta navideña + reconocimientos al personal · 📊 Tasa de canje y ROI del concurso
+
+---
+
 ## Clinic Module
 
 Expediente clínico unificado con 18 tablas + 4 vistas — genérico para clínicas, hospitales y veterinarias:
@@ -291,6 +308,7 @@ bash docs/payroll/sql/run_payroll.sh
 bash docs/mrp/sql/run_mrp.sh
 bash docs/venues/sql/run_venues.sh
 bash docs/clinic/sql/run_clinic.sh
+bash docs/gifts/sql/run_gifts.sh
 ```
 
 Requirements: PostgreSQL running locally · `psql` in PATH · database `mantrasdb` created.
@@ -367,7 +385,12 @@ docs/
       01_patients.sql             ← Pacientes, antecedentes, alergias, seguro médico
       02_consultations.sql        ← Consultas, Rx, lab, imágenes, vacunas, cirugías, externos
       run_clinic.sh
-run_all.sh                        ← Master installer (all 13 modules)
+  gifts/
+    sql/                          ← 2 SQL files + run_gifts.sh
+      01_gift_cards.sql           ← Gift cards monetarias y vales de servicio
+      02_campaigns_rewards.sql    ← Concursos, ganadoras, premios al personal
+      run_gifts.sh
+run_all.sh                        ← Master installer (all 14 modules)
 ```
 
 ---

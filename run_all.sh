@@ -71,6 +71,7 @@ echo ""
 if [ "$RESET" = true ]; then
   echo -e "${YELLOW}⚠  Modo --reset: eliminando todos los schemas...${NC}"
   # Cada DROP en su propia transacción para no superar max_locks_per_transaction
+  psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS gifts      CASCADE;" --quiet
   psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS clinic     CASCADE;" --quiet
   psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS venues     CASCADE;" --quiet
   psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS mrp        CASCADE;" --quiet
@@ -214,6 +215,16 @@ bash "${ROOT_DIR}/docs/clinic/sql/run_clinic.sh"
 
 echo ""
 
+# ── Módulo Gifts ───────────────────────────────────────────
+echo -e "${BOLD}▶  Módulo: Gifts (Tarjetas de consumo, premios y reconocimientos)${NC}"
+echo -e "   Gift cards monetarias y vales de servicio"
+echo -e "   Concursos de redes sociales, sorteos, premios al personal"
+echo ""
+
+bash "${ROOT_DIR}/docs/gifts/sql/run_gifts.sh"
+
+echo ""
+
 # ── Auditoría global: created_by / updated_by en todas las tablas ────────────
 echo -e "${BOLD}▶  Migración: columnas de auditoría (created_by / updated_by)${NC}"
 echo -e "   Todas las tablas en todos los schemas"
@@ -241,7 +252,7 @@ echo ""
 psql "$DATABASE_URL" -t -A -c "
   SELECT '  ' || table_schema || ': ' || COUNT(*) || ' tablas'
   FROM information_schema.tables
-  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys', 'crm', 'payroll', 'mrp', 'venues', 'clinic')
+  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys', 'crm', 'payroll', 'mrp', 'venues', 'clinic', 'gifts')
     AND table_type = 'BASE TABLE'
   GROUP BY table_schema
   ORDER BY table_schema;
@@ -251,7 +262,7 @@ echo -e "  Total:"
 psql "$DATABASE_URL" -t -A -c "
   SELECT '  ' || COUNT(*) || ' tablas en total'
   FROM information_schema.tables
-  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys', 'crm', 'payroll', 'mrp', 'venues', 'clinic')
+  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys', 'crm', 'payroll', 'mrp', 'venues', 'clinic', 'gifts')
     AND table_type = 'BASE TABLE';
 "
 echo ""
