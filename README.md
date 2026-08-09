@@ -10,21 +10,25 @@ A modular, multi-tenant ERP system built on PostgreSQL — designed to work for 
 
 ## Modules
 
-| Module | Status |
-|--------|--------|
-| HR (Human Resources) | ✅ Complete |
-| Logistics / WMS | ✅ Complete |
-| Sales | ✅ Complete |
-| Finance | ✅ Complete |
-| Production | 🔜 Planned |
-| Projects | 🔜 Planned |
-| Configuration | 🔜 Planned |
+| Module | Tables | Status |
+|--------|--------|--------|
+| HR (Human Resources) | 38 | ✅ Complete |
+| Logistics / WMS | 92 | ✅ Complete |
+| Sales | 69 | ✅ Complete |
+| Finance | 50 | ✅ Complete |
+| Production | 60 | ✅ Complete |
+| MRP / Planning | — | 🔜 Planned |
+| CRM | — | 🔜 Planned |
+| Projects / Workflows | — | 🔜 Planned |
+| Payroll Engine | — | 🔜 Planned |
+
+**Total: 309 tables across 5 schemas**
 
 ---
 
 ## HR Module
 
-Full human resources schema with 26 tables covering:
+Full human resources schema with 38 tables covering:
 
 - Multi-company architecture
 - Persons & employees (supports rehires)
@@ -33,9 +37,10 @@ Full human resources schema with 26 tables covering:
 - Schedules, shifts, holidays, time punches & attendance
 - Full payroll (concepts, periods, line-by-line details)
 - Equipment & asset management
-- Access code rotation (pindi, t7, etc.)
+- Access code rotation
 - Disciplinary actions, performance reviews, trainings
 - Universal document repository (polymorphic)
+- System users, sessions & audit log
 
 📖 See [`docs/hr/schema.md`](docs/hr/schema.md) for the full schema in English.  
 📖 Ver [`docs/hr/schema_es.md`](docs/hr/schema_es.md) para el esquema completo en español.
@@ -44,51 +49,95 @@ Full human resources schema with 26 tables covering:
 
 ## Logistics / WMS Module
 
-Full warehouse management system with 65+ tables covering the complete inbound → storage → outbound cycle:
+Full warehouse management system with 92 tables covering the complete inbound → storage → outbound cycle:
 
 - Multi-warehouse, multi-zone, multi-location (aisle-rack-level-position)
-- Products, variants, barcodes, kits (physical & virtual), BOM
+- Products, variants, barcodes, kits (physical & virtual)
 - Lot tracking (FEFO/FIFO/LIFO), serial numbers, LPN containers
 - Inbound: purchase orders, receipts, quality inspection, putaway rules
-- Inventory ledger (immutable, signed quantities — the source of truth)
-- Wave picking: templates → waves → allocations → pick tasks (zone/batch/cluster/discrete)
-- Outbound: orders (B2B & B2C), pack tasks, shipments, routes, route stops
-- Transfers & replenishment tasks between zones and warehouses
-- AMR/AGV robots: task queue, performance tracking, battery management
-- Operator profiles linked to HR employees — no duplicate accounts
-- **Differentiators vs SAP/Oracle:**
-  - 🇵🇪 SUNAT GRE (electronic transport docs, required in Peru)
-  - 💬 WhatsApp / SMS / Push notifications
-  - 📸 Photo verification at pick and pack
-  - 🌿 Carbon footprint tracking per shipment
-  - 🎮 Operator gamification (points, levels, accuracy)
-  - 🌡️ IoT sensor readings (temperature, humidity, weight)
-  - 🚨 System-wide alert center
+- Inventory ledger (immutable, signed quantities — source of truth)
+- Wave picking: templates → waves → allocations → pick tasks
+- Outbound: orders (B2B & B2C), pack tasks, shipments, routes, delivery proof
+- Transfers & replenishment between zones and warehouses
+- AMR/AGV robots: task queue, performance, battery management
+- **Differentiators:** 🇵🇪 SUNAT GRE · 💬 WhatsApp/Push notifications · 📸 Photo verification · 🌿 Carbon footprint · 🌡️ IoT sensors
 
 📖 Ver [`docs/logistics/schema_logistics_es.md`](docs/logistics/schema_logistics_es.md) para el esquema completo en español.
 
 ---
 
-## Tech Stack
+## Sales Module
 
-- **Database:** PostgreSQL
-- **Schemas:** `hr`, `logistics` (more to come)
-- **Database name:** `mantrasdb`
-- **Architecture:** Multi-tenant (company-scoped via `company_id` on every table)
+Full sales cycle with 69 tables covering:
+
+- Customers, addresses, contacts, credit limits
+- Price lists, price scales, customer special prices
+- Quotations (with versioning), sales orders, delivery schedules
+- Invoicing (boleta/factura), credit notes, debit notes
+- Collections, payment allocations, installment plans
+- Sales reps, commissions, loyalty program
+- Promotions: BOGO, bundles, % discount, rebates retroactivos
+- POS: stores, terminals, sessions, transactions
+- Returns & warranty (RMA, inspection, disposition)
+- **Differentiators:** 🇵🇪 SUNAT e-invoicing · 💳 Multi-currency payments · 🎁 Rebate agreements · 📦 Cancellation reasons + anulación flow
 
 ---
 
-## Running the schemas
+## Finance Module
+
+Full accounting and financial management with 50 tables covering:
+
+- Chart of accounts: PCGE (Peru) + PGC (Spain) — multi-country
+- Journal entries (double-entry) + General Ledger / Trial Balance views
+- Accounts Payable: supplier invoices, payments, detracciones, retenciones
+- Treasury & banking: bank accounts, reconciliation, petty cash, exchange rates
+- Fixed assets: depreciation (SUNAT method), revaluations NIC 16, disposals
+- Taxes: IGV/IR/IVA, PLE SUNAT (Libros de Ventas/Compras/Diario), fraccionamiento
+- Budgets, cost centers, profit centers, cost allocation rules
+- FX revaluation (NIC 21), intercompany transactions, period closing
+
+---
+
+## Production Module
+
+Universal production management with 60 tables + 9 views covering any industry:
+
+- **BOM types:** manufacturing · disassembly · refurbishment · recipe · kit · cutting_plan · configurable
+- **Industries:** manufacturing · textiles · jewelry · food & beverage · restaurants/delivery · electronics · reverse logistics (trade-in)
+- Work centers, machines, OEE tracking, IoT sensors, maintenance plans
+- Routings with versioning (ECO), HACCP critical control points, parallel ops
+- Production orders with full process-time traceability (started_at + completed_at per step)
+- Work orders: setup / run / teardown / quality check timestamps — all GENERATED
+- Quality control: plans, inspections, non-conformances, CAPA, CoA certificates
+- Production areas dashboard: real-time tracking by area (factory floor or kitchen)
+- Merma (waste) tracking with SUNAT classification (Art. 37 LIR: normal vs anormal)
+- Standard vs actual costing, variances, WIP balances, SUNAT merma declarations
+- Lot-to-lot genealogy (full backward/forward traceability for recalls)
+- Restaurant features: kitchen stations, KDS tickets, temperature logs (HACCP)
+- **Differentiators:** 🇵🇪 SUNAT Art.37 LIR merma/desmedro · 🍕 Restaurant/KDS · 📡 IoT sensors · ♻️ Reverse logistics · 💎 Precious metals · 👗 Cutting plans
+
+📖 Ver [`docs/production/schema_production_es.md`](docs/production/schema_production_es.md) para el esquema completo en español.
+
+---
+
+## Running the full ERP
 
 ```bash
-# HR module (run first — logistics depends on it)
-bash docs/hr/sql/run_hr.sh postgresql://user:pass@localhost:5432/mantrasdb
+# Install all 5 modules in order (takes ~10s)
+./run_all.sh
 
-# Logistics / WMS module
-bash docs/logistics/sql/run_logistics.sh postgresql://user:pass@localhost:5432/mantrasdb
+# Full reset + reinstall from scratch
+./run_all.sh --reset
+
+# Individual modules
+bash docs/hr/sql/run_hr.sh
+bash docs/logistics/sql/run_logistics.sh
+bash docs/sales/sql/run_sales.sh
+bash docs/finance/sql/run_finance.sh
+bash docs/production/sql/run_production.sh
 ```
 
-Requirements: PostgreSQL running locally, `psql` in PATH, database `mantrasdb` created.
+Requirements: PostgreSQL running locally · `psql` in PATH · database `mantrasdb` created.
 
 ---
 
@@ -97,53 +146,29 @@ Requirements: PostgreSQL running locally, `psql` in PATH, database `mantrasdb` c
 ```
 docs/
   hr/
-    sql/                    ← SQL files + run_hr.sh
-    schema.md               ← English documentation
-    schema_es.md            ← Spanish documentation
+    sql/                          ← 30 SQL files + run_hr.sh
+    schema.md                     ← English documentation
+    schema_es.md                  ← Spanish documentation
   logistics/
-    sql/                    ← 13 SQL files + run_logistics.sh
-      01_statuses_types.sql
-      02_suppliers_carriers.sql
-      03_products.sql
-      04_product_kits.sql
-      05_warehouses_locations.sql
-      06_inventory.sql
-      07_containers.sql
-      08_inbound.sql
-      09_waves_picking.sql
-      10_outbound.sql
-      11_transfers.sql
-      12_robots.sql
-      13_differentiators.sql
-      run_logistics.sh
-    schema_logistics_es.md  ← Spanish documentation
+    sql/                          ← 13 SQL files + run_logistics.sh
+    schema_logistics_es.md        ← Spanish documentation
   sales/
-    sql/                    ← 13 SQL files + run_sales.sh
-      01_statuses_types.sql
-      02_customers.sql
-      03_pricing.sql        ← precios + escalas + precios especiales + product_sales_config
-      04_quotations.sql
-      05_sales_orders.sql
-      06_invoicing.sql
-      07_collections.sql
-      08_commissions.sql
-      09_differentiators.sql  ← canales, loyalty, forecast, motivos anulación, FKs
-      10_promotions.sql       ← BOGO, bundles, rebaja peruana, rebates retroactivos
-      11_pos_store.sql        ← tiendas físicas, POS, sesiones de caja
-      12_returns.sql          ← RMA, inspección, disposición, garantías
-      13_customer_extensions.sql ← categorías cliente + cuentas bancarias multi-moneda
-      run_sales.sh
+    sql/                          ← 13 SQL files + run_sales.sh
   finance/
-    sql/                    ← 8 SQL files + run_finance.sh
-      01_accounts_periods.sql  ← plan de cuentas PCGE Perú + PGC España + fiscal_years + períodos
-      02_journal_entries.sql   ← asientos doble partida + Libro Mayor/Diario/Balance de Comprobación
-      03_accounts_payable.sql  ← facturas proveedor + pagos AP + detracciones + retenciones
-      04_treasury_banking.sql  ← cuentas bancarias + conciliación + caja chica + tipos de cambio
-      05_fixed_assets.sql      ← activos fijos + depreciación SUNAT + revaluaciones NIC 16 + bajas
-      06_taxes_ple.sql         ← IGV/IR/IVA + PLE SUNAT (Ventas/Compras/Diario) + fraccionamiento
-      07_budgets_cost_centers.sql ← presupuestos + centros de costo + distribución analítica
-      08_closing_intercompany.sql ← revaluación FX NIC 21 + intercompany + cierre de ejercicio
-      run_finance.sh
+    sql/                          ← 8 SQL files + run_finance.sh
+  production/
+    sql/                          ← 8 SQL files + run_production.sh
+      01_bom.sql                  ← BOM universal (9 tipos) + logística inversa + refurbishment
+      02_work_centers.sql         ← Centros de trabajo + máquinas + OEE + mantenimiento
+      03_routings.sql             ← Rutas + versiones ECO + HACCP + operaciones paralelas
+      04_production_orders.sql    ← OPs + bridge logistics + trazabilidad por proceso
+      05_work_orders.sql          ← WOs + time entries + material issues + outputs
+      06_quality_control.sql      ← Áreas + QC + inspecciones + CAPA + mermas SUNAT
+      07_costing.sql              ← Costeo estándar/real + WIP + variaciones + SUNAT merma/desmedro
+      08_differentiators.sql      ← Genealogía + IoT + KPIs + restaurante/KDS + temperatura HACCP
+      run_production.sh
+    schema_production_es.md       ← Spanish documentation
+run_all.sh                        ← Master installer (all 5 modules)
 ```
 
 ---
