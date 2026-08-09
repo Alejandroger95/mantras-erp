@@ -1290,3 +1290,73 @@ ALTER TABLE venues.access_logs
 
 ALTER TABLE venues.membership_benefits
     ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+-- ── SCHEMA CLINIC ──────────────────────────────────────────
+
+ALTER TABLE clinic.species
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.breeds
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.patients
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.patient_contacts
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.patient_background
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.patient_insurance
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.consultations
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.prescriptions
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.lab_orders
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.imaging_studies
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.vaccinations
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.surgeries
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.external_records
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+-- Inmutables (solo created_by_user_id)
+ALTER TABLE clinic.patient_allergies
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.vital_signs
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.consultation_diagnoses
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.prescription_lines
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE clinic.lab_results
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);

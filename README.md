@@ -24,8 +24,9 @@ A modular, multi-tenant ERP system built on PostgreSQL — designed to work for 
 | Payroll Engine | 8 | ✅ Complete |
 | MRP / Planning | 6 | ✅ Complete |
 | Venues | 11 | ✅ Complete |
+| Clinic | 18 | ✅ Complete |
 
-**Total: 379 tables across 12 schemas**
+**Total: 397 tables across 13 schemas**
 
 ---
 
@@ -172,6 +173,30 @@ Payroll calculation engine with 8 tables + 2 views — extends the basic HR payr
 
 ---
 
+## Clinic Module
+
+Expediente clínico unificado con 18 tablas + 4 vistas — genérico para clínicas, hospitales y veterinarias:
+
+- Paciente unificado (`patients`) con `patient_type: human/animal`: para humanos vincula a `hr.persons`; para animales tiene species, breed, microchip, BCS y dueño en `patient_contacts`
+- Catálogo de especies y razas (perro, gato, ave, reptil, caballo, etc.)
+- Contactos y dueños: emergencias, tutores, personas autorizadas a retirar al paciente
+- Antecedentes médicos por condición: enfermedades crónicas, cirugías previas, hospitalizaciones, antecedentes familiares, hábitos — con flag `source` (reportado/documentado/aquí)
+- Alergias INMUTABLES con severidad (mild → life_threatening), alérgeno, reacción y flag de confirmación — activa alertas rojas al prescribir
+- Seguro médico: RÍMAC, EsSalud, SIS, seguros privados — con cobertura %, deducible y código de autorización
+- Consultas (`consultations`): anamnesis, examen físico, evaluación, plan, indicaciones — se vincula a `services.appointments`; soporta hospitalización (cama, sala, fechas de ingreso/alta)
+- Signos vitales INMUTABLES: temperatura, PA, FC, FR, SpO₂, peso, talla, **IMC auto-calculado** (GENERATED), glucemia, escala de dolor, condición corporal BCS (vet), mucosas
+- Diagnósticos INMUTABLES: ICD-10 para humanos, texto libre para vet — múltiples por consulta (principal + diferenciales) con lateralidad y flag de diagnóstico nuevo
+- Recetas médicas con número único, tipo (común/controlada/electrónica) y líneas INMUTABLES (dosis, frecuencia, vía, duración, cantidad a dispensar, vínculo a inventario)
+- Órdenes de laboratorio con estado (ordered → completed) y laboratorio externo; resultados INMUTABLES con flag de anormalidad (H/L/HH/LL) y URL del PDF
+- Estudios de imagen: Rx, ecografía, TC, RM, endoscopía, ecocardiograma — con hallazgos, impresión radiológica y URLs DICOM
+- Vacunas: lote, vencimiento, dosis N°, próxima dosis, reacción adversa — soporta vacunas aplicadas aquí y registradas de cartilla externa
+- Cirugías: cirujano, anestesista, sala, anestesia, **duración GENERATED** (ended_at − started_at), hallazgos, complicaciones, reporte operatorio
+- **`external_records`** ⭐: documenta TODO lo que el paciente se atendió en otra institución (consultas, hospitalizaciones, cirugías, labs, imágenes, vacunas, recetas, epicrisis). Con URL de documentos escaneados, notas de revisión y flag de confiabilidad (`document` / `patient_report` / `system_import`). Base para análisis longitudinal completo.
+- Views: `patient_timeline_view` (historia cronológica completa: propios + externos), `active_medications_view`, `vaccination_calendar_view` (vencidas/próximas 30 días), `pending_results_view` (labs sin resultado + días de espera)
+- **Differentiators:** 🐕 Clínica + Veterinaria en mismo schema · 🏥 Historial de otros centros · 💊 Alertas de alergias · 📊 IMC y duración GENERATED · 📋 ICD-10 + texto libre · 🔗 Vinculado a Services + Logistics (inventario de medicamentos)
+
+---
+
 ## Venues Module
 
 Recintos, eventos y membresías con 11 tables + 5 views — genérico para clubs campestres, piscinas, salas de conciertos, estadios y centros de convenciones:
@@ -246,7 +271,7 @@ Appointment-based business management with 19 tables + 5 views — ideal for bea
 ## Running the full ERP
 
 ```bash
-# Install all 12 modules in order (takes ~40s)
+# Install all 13 modules in order (takes ~45s)
 ./run_all.sh
 
 # Full reset + reinstall from scratch
@@ -265,6 +290,7 @@ bash docs/crm/sql/run_crm.sh
 bash docs/payroll/sql/run_payroll.sh
 bash docs/mrp/sql/run_mrp.sh
 bash docs/venues/sql/run_venues.sh
+bash docs/clinic/sql/run_clinic.sh
 ```
 
 Requirements: PostgreSQL running locally · `psql` in PATH · database `mantrasdb` created.
@@ -336,7 +362,12 @@ docs/
       02_events.sql               ← Eventos, aforo por zona, tickets, access logs
       03_memberships.sql          ← Tipos de membresía, membresías, beneficios, facturación
       run_venues.sh
-run_all.sh                        ← Master installer (all 12 modules)
+  clinic/
+    sql/                          ← 2 SQL files + run_clinic.sh
+      01_patients.sql             ← Pacientes, antecedentes, alergias, seguro médico
+      02_consultations.sql        ← Consultas, Rx, lab, imágenes, vacunas, cirugías, externos
+      run_clinic.sh
+run_all.sh                        ← Master installer (all 13 modules)
 ```
 
 ---
