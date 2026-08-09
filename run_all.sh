@@ -71,6 +71,7 @@ echo ""
 if [ "$RESET" = true ]; then
   echo -e "${YELLOW}⚠  Modo --reset: eliminando todos los schemas...${NC}"
   # Cada DROP en su propia transacción para no superar max_locks_per_transaction
+  psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS venues     CASCADE;" --quiet
   psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS mrp        CASCADE;" --quiet
   psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS payroll    CASCADE;" --quiet
   psql "$DATABASE_URL" -c "DROP SCHEMA IF EXISTS crm        CASCADE;" --quiet
@@ -191,6 +192,16 @@ bash "${ROOT_DIR}/docs/mrp/sql/run_mrp.sh"
 
 echo ""
 
+# ── Módulo Venues ─────────────────────────────────────────────
+echo -e "${BOLD}▶  Módulo: Venues (Recintos, Eventos, Membresías)${NC}"
+echo -e "   Clubs, piscinas, estadios, salas de conciertos"
+echo -e "   Eventos, aforo por zona, tickets, control de acceso, membresías"
+echo ""
+
+bash "${ROOT_DIR}/docs/venues/sql/run_venues.sh"
+
+echo ""
+
 # ── Auditoría global: created_by / updated_by en todas las tablas ────────────
 echo -e "${BOLD}▶  Migración: columnas de auditoría (created_by / updated_by)${NC}"
 echo -e "   Todas las tablas en todos los schemas"
@@ -218,7 +229,7 @@ echo ""
 psql "$DATABASE_URL" -t -A -c "
   SELECT '  ' || table_schema || ': ' || COUNT(*) || ' tablas'
   FROM information_schema.tables
-  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys', 'crm', 'payroll', 'mrp')
+  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys', 'crm', 'payroll', 'mrp', 'venues')
     AND table_type = 'BASE TABLE'
   GROUP BY table_schema
   ORDER BY table_schema;
@@ -228,7 +239,7 @@ echo -e "  Total:"
 psql "$DATABASE_URL" -t -A -c "
   SELECT '  ' || COUNT(*) || ' tablas en total'
   FROM information_schema.tables
-  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys', 'crm', 'payroll', 'mrp')
+  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services', 'projects', 'surveys', 'crm', 'payroll', 'mrp', 'venues')
     AND table_type = 'BASE TABLE';
 "
 echo ""

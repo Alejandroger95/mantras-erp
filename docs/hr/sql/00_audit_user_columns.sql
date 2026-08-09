@@ -1246,3 +1246,47 @@ ALTER TABLE mrp.demand_forecast_lines
 
 ALTER TABLE mrp.planned_order_requirements
     ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+-- ── SCHEMA VENUES ──────────────────────────────────────────
+
+ALTER TABLE venues.venues
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE venues.venue_zones
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE venues.events
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE venues.event_zone_capacity
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE venues.tickets
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE venues.membership_types
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE venues.memberships
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE venues.membership_invoices
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+-- Inmutables (solo created_by_user_id)
+ALTER TABLE venues.venue_amenities
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE venues.access_logs
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE venues.membership_benefits
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);

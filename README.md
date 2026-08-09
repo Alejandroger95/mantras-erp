@@ -23,8 +23,9 @@ A modular, multi-tenant ERP system built on PostgreSQL — designed to work for 
 | CRM | 6 | ✅ Complete |
 | Payroll Engine | 8 | ✅ Complete |
 | MRP / Planning | 6 | ✅ Complete |
+| Venues | 11 | ✅ Complete |
 
-**Total: 368 tables across 11 schemas**
+**Total: 379 tables across 12 schemas**
 
 ---
 
@@ -171,6 +172,26 @@ Payroll calculation engine with 8 tables + 2 views — extends the basic HR payr
 
 ---
 
+## Venues Module
+
+Recintos, eventos y membresías con 11 tables + 5 views — genérico para clubs campestres, piscinas, salas de conciertos, estadios y centros de convenciones:
+
+- Recintos (`venues`) con tipo (club/concert_hall/stadium/pool/coworking/convention) y flags `requires_membership` + `has_ticketing`
+- Zonas/sectores (`venue_zones`): general, VIP, premium, pool, court, field, stage, parking — con aforo propio, precio base y soporte de asientos numerados
+- Amenidades del recinto (estacionamiento, vestuarios, bar, WiFi) — INMUTABLE
+- Eventos (`events`) con tipo (regular/concert/sport/private/festival/class), artista, horario puertas/inicio/fin, estado y control de reingreso
+- Aforo por zona por evento (`event_zone_capacity`): capacidad, tickets vendidos, disponibles y `is_sold_out` — todo GENERATED
+- Tickets individuales con QR único, asiento numerado opcional, precio pagado, soporte de cortesía y transferencia entre clientes
+- Log de accesos INMUTABLE (`access_logs`): entry/exit/reentry/denied, por QR o tarjeta de membresía, con snapshot de aforo al momento
+- Tipos de membresía: Bronze/Plata/Oro/Familiar, periodicidad de cobro, matrícula, límite de visitas, pases de invitado, congelamiento
+- Membresías individuales con estado (active/frozen/expired/cancelled), vigencia, renovación automática y referidos
+- Beneficios por tipo de membresía: zone_access, service_discount, guest_pass, priority_booking, free_class — INMUTABLE
+- Facturación periódica de membresías con referencia a `sales.invoices`
+- Views: `event_occupancy_view` (aforo en tiempo real), `upcoming_events_view` (próximos eventos con disponibilidad), `membership_status_view` (socios + MRR estimado), `daily_access_view` (quién está dentro ahora), `membership_revenue_view` (ingresos por período)
+- **Differentiators:** 🎟️ Tickets con QR · 🏊 Membresías con congelamiento · 🎭 Conciertos + clubs en mismo módulo · 📊 MRR estimado · 🚦 Aforo en tiempo real
+
+---
+
 ## MRP Module
 
 Material Requirements Planning with 6 tables + 2 views:
@@ -225,7 +246,7 @@ Appointment-based business management with 19 tables + 5 views — ideal for bea
 ## Running the full ERP
 
 ```bash
-# Install all 11 modules in order (takes ~35s)
+# Install all 12 modules in order (takes ~40s)
 ./run_all.sh
 
 # Full reset + reinstall from scratch
@@ -243,6 +264,7 @@ bash docs/surveys/sql/run_surveys.sh
 bash docs/crm/sql/run_crm.sh
 bash docs/payroll/sql/run_payroll.sh
 bash docs/mrp/sql/run_mrp.sh
+bash docs/venues/sql/run_venues.sh
 ```
 
 Requirements: PostgreSQL running locally · `psql` in PATH · database `mantrasdb` created.
@@ -308,7 +330,13 @@ docs/
     sql/                          ← 1 SQL file + run_mrp.sh
       01_mrp.sql                  ← Parámetros, pronósticos, runs, órdenes planificadas + vistas
       run_mrp.sh
-run_all.sh                        ← Master installer (all 11 modules)
+  venues/
+    sql/                          ← 3 SQL files + run_venues.sh
+      01_venues.sql               ← Recintos, zonas, amenidades
+      02_events.sql               ← Eventos, aforo por zona, tickets, access logs
+      03_memberships.sql          ← Tipos de membresía, membresías, beneficios, facturación
+      run_venues.sh
+run_all.sh                        ← Master installer (all 12 modules)
 ```
 
 ---
