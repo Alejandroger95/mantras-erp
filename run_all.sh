@@ -71,6 +71,7 @@ echo ""
 if [ "$RESET" = true ]; then
   echo -e "${YELLOW}⚠  Modo --reset: eliminando todos los schemas...${NC}"
   psql "$DATABASE_URL" -c "
+    DROP SCHEMA IF EXISTS services   CASCADE;
     DROP SCHEMA IF EXISTS production CASCADE;
     DROP SCHEMA IF EXISTS finance   CASCADE;
     DROP SCHEMA IF EXISTS sales     CASCADE;
@@ -130,6 +131,16 @@ bash "${ROOT_DIR}/docs/production/sql/run_production.sh"
 
 echo ""
 
+# ── Módulo Services ──────────────────────────────────────────
+echo -e "${BOLD}▶  Módulo: Services (Servicios)${NC}"
+echo -e "   Salón de belleza, spa, clínica, veterinaria, gym, taller"
+echo -e "   Citas, personal, skills, KPIs, historial cliente"
+echo ""
+
+bash "${ROOT_DIR}/docs/services/sql/run_services.sh"
+
+echo ""
+
 # ── Auditoría global: created_by / updated_by en todas las tablas ────────────
 echo -e "${BOLD}▶  Migración: columnas de auditoría (created_by / updated_by)${NC}"
 echo -e "   246 tablas en hr / logistics / sales / finance"
@@ -157,7 +168,7 @@ echo ""
 psql "$DATABASE_URL" -t -A -c "
   SELECT '  ' || table_schema || ': ' || COUNT(*) || ' tablas'
   FROM information_schema.tables
-  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production')
+  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services')
     AND table_type = 'BASE TABLE'
   GROUP BY table_schema
   ORDER BY table_schema;
@@ -167,7 +178,7 @@ echo -e "  Total:"
 psql "$DATABASE_URL" -t -A -c "
   SELECT '  ' || COUNT(*) || ' tablas en total'
   FROM information_schema.tables
-  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production')
+  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance', 'production', 'services')
     AND table_type = 'BASE TABLE';
 "
 echo ""

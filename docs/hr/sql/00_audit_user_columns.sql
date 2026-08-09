@@ -7,7 +7,7 @@
 -- IMPORTANTE: ejecutar DESPUÉS de 99_system_users_audit.sql
 -- ya que referencia hr.system_users(id).
 --
--- Total tablas: 246
+-- Total tablas: 267 (246 originales + 19 services + 2 sales/promo_codes)
 -- ============================================================
 
 -- ── SCHEMA FINANCE ─────────────────────────────────────────
@@ -1001,4 +1001,89 @@ ALTER TABLE sales.tax_rates
 ALTER TABLE sales.warranty_claims
     ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
     ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+-- ── SCHEMA SALES (extensión: promo codes) ──────────────────
+
+ALTER TABLE sales.promo_codes
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE sales.promo_code_redemptions
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+-- INMUTABLE: sin updated_by_user_id
+
+-- ── SCHEMA SERVICES ────────────────────────────────────────
+
+-- Tablas mutables (tienen updated_at)
+ALTER TABLE services.service_categories
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.services
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.service_variants
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.service_packages
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.service_package_items
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.service_resources
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.service_resource_requirements
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.staff_profiles
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.staff_service_skills
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.staff_availability
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.staff_time_off
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.appointments
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.appointment_services
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.waitlist
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id),
+    ADD COLUMN IF NOT EXISTS updated_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+-- Tablas inmutables (solo created_by_user_id)
+ALTER TABLE services.appointment_time_log
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.appointment_consumables
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.appointment_reminders
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.service_ratings
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
+
+ALTER TABLE services.client_service_history
+    ADD COLUMN IF NOT EXISTS created_by_user_id BIGINT REFERENCES hr.system_users(id);
 

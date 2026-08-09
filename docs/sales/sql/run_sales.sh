@@ -56,6 +56,9 @@ run_sql "$SCRIPT_DIR/12_returns.sql"
 run_sql "$SCRIPT_DIR/13_customer_extensions.sql"
 # Categorías de cliente + cuentas bancarias del cliente (multi-moneda, cuenta preferida)
 
+run_sql "$SCRIPT_DIR/14_promo_codes.sql"
+# Códigos promocionales: VERANO20, BIENVENIDA10, cumpleaños personalizados
+
 echo ""
 echo "================================================"
 echo "🎉  Módulo Sales instalado correctamente."

@@ -14,15 +14,16 @@ A modular, multi-tenant ERP system built on PostgreSQL — designed to work for 
 |--------|--------|--------|
 | HR (Human Resources) | 38 | ✅ Complete |
 | Logistics / WMS | 92 | ✅ Complete |
-| Sales | 69 | ✅ Complete |
+| Sales | 71 | ✅ Complete |
 | Finance | 50 | ✅ Complete |
 | Production | 60 | ✅ Complete |
+| Services | 19 | ✅ Complete |
 | MRP / Planning | — | 🔜 Planned |
 | CRM | — | 🔜 Planned |
 | Projects / Workflows | — | 🔜 Planned |
 | Payroll Engine | — | 🔜 Planned |
 
-**Total: 309 tables across 5 schemas**
+**Total: 330 tables across 6 schemas**
 
 ---
 
@@ -120,10 +121,29 @@ Universal production management with 60 tables + 9 views covering any industry:
 
 ---
 
+## Services Module
+
+Appointment-based business management with 19 tables + 5 views — ideal for beauty salons, spas, clinics, gyms, veterinaries and any service business:
+
+- Service catalog with categories, variants (by duration/price) and packages
+- Resource management: stations, rooms, equipment, vehicles
+- Staff profiles with skill levels (trainee/junior/senior/master) and price overrides per service
+- Staff availability (recurring weekly + specific dates) + time-off blocks
+- Appointments with source tracking (walk-in, WhatsApp, online, phone, POS)
+- Per-service time logs (application / wait / rinse / dry phases) and consumables linked to inventory
+- Waitlist with preferred staff, date/time preferences
+- SMS/WhatsApp/email appointment reminders
+- Client service history: color formulas, preferences, allergy alerts, before/after photos
+- Staff KPI views: punctuality %, efficiency %, revenue, commission, avg rating by month
+- Promo codes (Sales extension): VERANO20, BIENVENIDA10, birthday-personalized codes
+- **Differentiators:** 💇 Formula history · ⏱️ Phase timing · 💊 Consumables → inventory · ⭐ Multi-dimension ratings · 📊 Staff KPIs
+
+---
+
 ## Running the full ERP
 
 ```bash
-# Install all 5 modules in order (takes ~10s)
+# Install all 6 modules in order (takes ~15s)
 ./run_all.sh
 
 # Full reset + reinstall from scratch
@@ -135,6 +155,7 @@ bash docs/logistics/sql/run_logistics.sh
 bash docs/sales/sql/run_sales.sh
 bash docs/finance/sql/run_finance.sh
 bash docs/production/sql/run_production.sh
+bash docs/services/sql/run_services.sh
 ```
 
 Requirements: PostgreSQL running locally · `psql` in PATH · database `mantrasdb` created.
@@ -168,7 +189,14 @@ docs/
       08_differentiators.sql      ← Genealogía + IoT + KPIs + restaurante/KDS + temperatura HACCP
       run_production.sh
     schema_production_es.md       ← Spanish documentation
-run_all.sh                        ← Master installer (all 5 modules)
+  services/
+    sql/                          ← 4 SQL files + run_services.sh
+      01_service_catalog.sql      ← Catálogo: servicios, variantes, paquetes, recursos
+      02_staff_services.sql       ← Personal: skills, disponibilidad, bloqueos de agenda
+      03_appointments.sql         ← Citas + servicios + consumibles + lista de espera + recordatorios
+      04_ratings_kpis.sql         ← Calificaciones + historial cliente + vistas KPI
+      run_services.sh
+run_all.sh                        ← Master installer (all 6 modules)
 ```
 
 ---
