@@ -114,10 +114,17 @@ CREATE TABLE production.work_orders (
     ) STORED,
 
     -- Eficiencia real vs planificada (%)
+    -- Nota: no puede referenciar actual_run_min (también GENERATED),
+    --       se inlinea la expresión de duración directamente.
     time_efficiency_pct NUMERIC(7,2) GENERATED ALWAYS AS (
-        CASE WHEN actual_run_min IS NOT NULL AND actual_run_min > 0
+        CASE WHEN production_started_at IS NOT NULL
+                  AND production_completed_at IS NOT NULL
                   AND planned_run_min > 0
-             THEN ROUND((planned_run_min / actual_run_min) * 100, 2)
+                  AND EXTRACT(EPOCH FROM (production_completed_at - production_started_at)) > 0
+             THEN ROUND(
+                 planned_run_min /
+                 (EXTRACT(EPOCH FROM (production_completed_at - production_started_at)) / 60)
+                 * 100, 2)
              ELSE NULL END
     ) STORED,
 
