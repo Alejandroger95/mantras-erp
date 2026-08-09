@@ -81,8 +81,8 @@ run_sql "03_accounts_payable.sql"    "03 — Cuentas por Pagar (AP) + detraccion
 run_sql "04_treasury_banking.sql"    "04 — Tesorería y Bancos + caja chica + tipos de cambio"
 run_sql "05_fixed_assets.sql"        "05 — Activos Fijos + depreciación SUNAT + revaluaciones"
 run_sql "06_taxes_ple.sql"           "06 — Impuestos + PLE SUNAT + detracciones + fraccionamiento"
-run_sql "07_budgets_cost_centers.sql""07 — Presupuestos + Centros de Costo + distribución"
-run_sql "08_closing_intercompany.sql""08 — Revaluación FX + Intercompany + Cierre de ejercicio"
+run_sql "07_budgets_cost_centers.sql" "07 — Presupuestos + Centros de Costo + distribución"
+run_sql "08_closing_intercompany.sql" "08 — Revaluación FX + Intercompany + Cierre de ejercicio"
 
 echo ""
 echo -e "${BOLD}${GREEN}================================================${NC}"
