@@ -14,8 +14,8 @@ A modular, multi-tenant ERP system built on PostgreSQL — designed to work for 
 |--------|--------|
 | HR (Human Resources) | ✅ Complete |
 | Logistics / WMS | ✅ Complete |
-| Sales | 🔜 Planned |
-| Finance | 🔜 Planned |
+| Sales | ✅ Complete |
+| Finance | ✅ Complete |
 | Production | 🔜 Planned |
 | Projects | 🔜 Planned |
 | Configuration | 🔜 Planned |
@@ -117,8 +117,33 @@ docs/
       13_differentiators.sql
       run_logistics.sh
     schema_logistics_es.md  ← Spanish documentation
-  sales/                    ← coming soon
-  finance/                  ← coming soon
+  sales/
+    sql/                    ← 13 SQL files + run_sales.sh
+      01_statuses_types.sql
+      02_customers.sql
+      03_pricing.sql        ← precios + escalas + precios especiales + product_sales_config
+      04_quotations.sql
+      05_sales_orders.sql
+      06_invoicing.sql
+      07_collections.sql
+      08_commissions.sql
+      09_differentiators.sql  ← canales, loyalty, forecast, motivos anulación, FKs
+      10_promotions.sql       ← BOGO, bundles, rebaja peruana, rebates retroactivos
+      11_pos_store.sql        ← tiendas físicas, POS, sesiones de caja
+      12_returns.sql          ← RMA, inspección, disposición, garantías
+      13_customer_extensions.sql ← categorías cliente + cuentas bancarias multi-moneda
+      run_sales.sh
+  finance/
+    sql/                    ← 8 SQL files + run_finance.sh
+      01_accounts_periods.sql  ← plan de cuentas PCGE Perú + PGC España + fiscal_years + períodos
+      02_journal_entries.sql   ← asientos doble partida + Libro Mayor/Diario/Balance de Comprobación
+      03_accounts_payable.sql  ← facturas proveedor + pagos AP + detracciones + retenciones
+      04_treasury_banking.sql  ← cuentas bancarias + conciliación + caja chica + tipos de cambio
+      05_fixed_assets.sql      ← activos fijos + depreciación SUNAT + revaluaciones NIC 16 + bajas
+      06_taxes_ple.sql         ← IGV/IR/IVA + PLE SUNAT (Ventas/Compras/Diario) + fraccionamiento
+      07_budgets_cost_centers.sql ← presupuestos + centros de costo + distribución analítica
+      08_closing_intercompany.sql ← revaluación FX NIC 21 + intercompany + cierre de ejercicio
+      run_finance.sh
 ```
 
 ---

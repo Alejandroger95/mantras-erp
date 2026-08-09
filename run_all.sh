@@ -71,6 +71,8 @@ echo ""
 if [ "$RESET" = true ]; then
   echo -e "${YELLOW}⚠  Modo --reset: eliminando todos los schemas...${NC}"
   psql "$DATABASE_URL" -c "
+    DROP SCHEMA IF EXISTS finance   CASCADE;
+    DROP SCHEMA IF EXISTS sales     CASCADE;
     DROP SCHEMA IF EXISTS logistics CASCADE;
     DROP SCHEMA IF EXISTS hr        CASCADE;
   "
@@ -90,10 +92,30 @@ echo ""
 
 # ── Módulo Logistics ─────────────────────────────────────────
 echo -e "${BOLD}▶  Módulo: Logistics / WMS${NC}"
-echo -e "   91 tablas — WMS completo con flujos inbound/outbound"
+echo -e "   92 tablas — WMS completo con flujos inbound/outbound"
 echo ""
 
 bash "${ROOT_DIR}/docs/logistics/sql/run_logistics.sh" "$DATABASE_URL"
+
+echo ""
+
+# ── Módulo Sales ─────────────────────────────────────────────
+echo -e "${BOLD}▶  Módulo: Sales (Ventas)${NC}"
+echo -e "   72+ tablas — cotizaciones, órdenes, facturación SUNAT, cobranzas,"
+echo -e "   promociones, POS/tiendas, devoluciones/garantías, cuentas bancarias"
+echo ""
+
+bash "${ROOT_DIR}/docs/sales/sql/run_sales.sh" "$DATABASE_URL"
+
+echo ""
+
+# ── Módulo Finance ────────────────────────────────────────────
+echo -e "${BOLD}▶  Módulo: Finance (Finanzas)${NC}"
+echo -e "   Plan de Cuentas PCGE/PGC, doble partida, AP, tesorería,"
+echo -e "   activos fijos SUNAT, PLE, presupuestos, centros de costo"
+echo ""
+
+bash "${ROOT_DIR}/docs/finance/sql/run_finance.sh" "$DATABASE_URL"
 
 echo ""
 
@@ -107,7 +129,7 @@ echo ""
 psql "$DATABASE_URL" -t -A -c "
   SELECT '  ' || table_schema || ': ' || COUNT(*) || ' tablas'
   FROM information_schema.tables
-  WHERE table_schema IN ('hr', 'logistics')
+  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance')
     AND table_type = 'BASE TABLE'
   GROUP BY table_schema
   ORDER BY table_schema;
@@ -117,7 +139,7 @@ echo -e "  Total:"
 psql "$DATABASE_URL" -t -A -c "
   SELECT '  ' || COUNT(*) || ' tablas en total'
   FROM information_schema.tables
-  WHERE table_schema IN ('hr', 'logistics')
+  WHERE table_schema IN ('hr', 'logistics', 'sales', 'finance')
     AND table_type = 'BASE TABLE';
 "
 echo ""
