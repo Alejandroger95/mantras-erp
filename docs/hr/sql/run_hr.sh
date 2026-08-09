@@ -91,6 +91,7 @@ FILES=(
   "24_performance_reviews.sql"
   "25_trainings.sql"
   "26_documents.sql"
+  "27_training_assessments.sql"
   "99_system_users_audit.sql"
 )
 

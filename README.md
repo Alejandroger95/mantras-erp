@@ -12,18 +12,18 @@ A modular, multi-tenant ERP system built on PostgreSQL — designed to work for 
 
 | Module | Tables | Status |
 |--------|--------|--------|
-| HR (Human Resources) | 38 | ✅ Complete |
+| HR (Human Resources) | 40 | ✅ Complete |
 | Logistics / WMS | 92 | ✅ Complete |
 | Sales | 71 | ✅ Complete |
 | Finance | 50 | ✅ Complete |
 | Production | 60 | ✅ Complete |
 | Services | 19 | ✅ Complete |
+| Projects | 10 | ✅ Complete |
 | MRP / Planning | — | 🔜 Planned |
 | CRM | — | 🔜 Planned |
-| Projects / Workflows | — | 🔜 Planned |
 | Payroll Engine | — | 🔜 Planned |
 
-**Total: 330 tables across 6 schemas**
+**Total: 342 tables across 7 schemas**
 
 ---
 
@@ -121,6 +121,26 @@ Universal production management with 60 tables + 9 views covering any industry:
 
 ---
 
+## Projects Module
+
+Project-based business management with 10 tables + 3 views — designed for consulting firms, software agencies, marketing teams, and any business that sells work by phase or by the hour:
+
+- Project types catalog (software/consulting/marketing/construction/audit)
+- Projects with billing types: fixed price, time & materials, milestone, retainer, pro bono
+- Phases with progress tracking (planned vs actual start/end, estimated hours, budget)
+- Billing milestones: trigger invoices when a phase or deliverable is reached
+- Team roster with roles (PM/tech lead/developer/QA/analyst/designer) and per-member hourly rates
+- Task management with subtask support, story points, priorities, status workflow
+- Time entries (IMMUTABLE) with billable/non-billable distinction and T&M amount auto-computed
+- Risk register with probability × impact matrix → auto-computed risk_level (low/medium/high/critical)
+- Project documents with client-visibility flag (specs, deliverables, contracts, meeting notes)
+- Immutable status change log for full audit trail
+- Views: `project_dashboard_view` (progress, budget consumption, overdue milestones), `team_utilization_view` (hours by member/month), `billing_pipeline_view` (what's ready to invoice)
+- Linked to `sales.sales_orders` (origin) → `sales.invoices` (billing per milestone or T&M)
+- **Differentiators:** 📊 T&M auto-billing · 🎯 Milestone invoicing · ⚠️ Risk matrix · 🔗 CRM+Sales integration · 🕐 Time tracking with billable split
+
+---
+
 ## Services Module
 
 Appointment-based business management with 19 tables + 5 views — ideal for beauty salons, spas, clinics, gyms, veterinaries and any service business:
@@ -143,7 +163,7 @@ Appointment-based business management with 19 tables + 5 views — ideal for bea
 ## Running the full ERP
 
 ```bash
-# Install all 6 modules in order (takes ~15s)
+# Install all 7 modules in order (takes ~20s)
 ./run_all.sh
 
 # Full reset + reinstall from scratch
@@ -156,6 +176,7 @@ bash docs/sales/sql/run_sales.sh
 bash docs/finance/sql/run_finance.sh
 bash docs/production/sql/run_production.sh
 bash docs/services/sql/run_services.sh
+bash docs/projects/sql/run_projects.sh
 ```
 
 Requirements: PostgreSQL running locally · `psql` in PATH · database `mantrasdb` created.
@@ -196,7 +217,14 @@ docs/
       03_appointments.sql         ← Citas + servicios + consumibles + lista de espera + recordatorios
       04_ratings_kpis.sql         ← Calificaciones + historial cliente + vistas KPI
       run_services.sh
-run_all.sh                        ← Master installer (all 6 modules)
+  projects/
+    sql/                          ← 4 SQL files + run_projects.sh
+      01_projects.sql             ← Tipos, proyectos, fases, hitos
+      02_tasks_team.sql           ← Equipo, tareas, time entries (IMMUTABLE)
+      03_documents_risks.sql      ← Documentos + registro de riesgos + log de estados
+      04_views_kpis.sql           ← Vistas: dashboard, utilización equipo, pipeline de facturación
+      run_projects.sh
+run_all.sh                        ← Master installer (all 7 modules)
 ```
 
 ---
