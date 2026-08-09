@@ -201,10 +201,12 @@ CREATE TABLE finance.budget_lines (
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    UNIQUE (budget_id, accounting_period_id, account_id,
-            COALESCE(cost_center_id, 0::BIGINT),
-            COALESCE(profit_center_id, 0::BIGINT))
 );
+
+CREATE UNIQUE INDEX uq_budget_lines
+    ON finance.budget_lines (budget_id, accounting_period_id, account_id,
+                             COALESCE(cost_center_id, 0::BIGINT),
+                             COALESCE(profit_center_id, 0::BIGINT));
 
 CREATE INDEX idx_budgetline_budget  ON finance.budget_lines (budget_id);
 CREATE INDEX idx_budgetline_account ON finance.budget_lines (account_id);
