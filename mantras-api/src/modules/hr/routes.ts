@@ -31,8 +31,9 @@ const hr: FastifyPluginAsync = async (app) => {
 
     const result = z.object({
       employeeId: z.coerce.number().int().positive(),
-      punchType:  z.enum(['check_in', 'break_start', 'break_end', 'check_out', 'overtime_start', 'overtime_end']),
+      punchType:  z.enum(['check_in', 'break_start', 'break_end', 'check_out', 'overtime_start', 'overtime_end', 'absence_start', 'absence_end']),
       notes:      z.string().max(300).optional(),
+      punchedAt:  z.string().datetime({ offset: true }).optional(), // permite registrar con hora personalizada
     }).safeParse(req.body)
 
     if (!result.success) {
@@ -44,7 +45,7 @@ const hr: FastifyPluginAsync = async (app) => {
       })
     }
 
-    const punch = await registerPunch(req.user.companyId, result.data)
+    const punch = await registerPunch(req.user.companyId, result.data as Parameters<typeof registerPunch>[1])
     return reply.code(201).send(punch)
   })
 

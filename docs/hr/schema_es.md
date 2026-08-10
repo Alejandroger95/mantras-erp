@@ -59,7 +59,8 @@ Capa 8 — Documentos (aplica a todo)
 |-------|-----------|
 | `persons` ★ | **La identidad real.** Nombre, contacto, dirección. Sin campos de documento — eso va en `person_documents`. |
 | `person_documents` | **Historial de documentos de identidad.** Cuando alguien cambia de NIE a DNI, el NIE queda como histórico y el DNI queda activo (`is_primary=TRUE`). También registra renovaciones, pérdidas y cambios de nombre. |
-| `employees` | **El período de trabajo.** Liga a la persona con la empresa. Si alguien renuncia y regresa, se crea un nuevo registro aquí pero apuntando al mismo `person_id`. |
+| `employees` | **El período de trabajo.** Liga a la persona con la empresa. Si alguien renuncia y regresa, se crea un nuevo registro aquí pero apuntando al mismo `person_id`. Tiene `reports_to` (FK a sí misma) con el jefe directo actual. |
+| `employee_reporting_history` | **Historial de jerarquía.** Cada fila es un período en el que un empleado reportaba a un jefe (`effective_from` / `effective_to`). `effective_to IS NULL` = vigente hoy. Función helper: `hr.set_employee_manager()`. |
 | `contract_types` | Tipos de contrato: planilla fija, por horas, por proyecto, honorarios. |
 | `contracts` | El contrato: qué empleado, qué puesto, qué tipo, con qué sueldo y desde cuándo. Historial completo. |
 | `work_reductions` | **Reducción de jornada temporal.** Paternidad, maternidad, médica, cuidado familiar. Guarda las horas originales, las reducidas, el porcentaje calculado automáticamente, si el salario baja proporcionalmente y el respaldo legal (artículo de ley). |
@@ -90,19 +91,43 @@ work_reductions → Juan García (employee_id=47)
 | `holidays` | Días festivos. Si `company_id` está vacío aplica a todo el país. Soporta recurrencia anual y pago doble. |
 | `time_punches` | **Los fichajes.** Eventos individuales de entrada/salida tal como llegan del dispositivo: biométrico, app, NFC, QR o manual. Cada punch tiene tipo (`check_in`, `break_start`, etc.), origen y opcionalmente geolocalización. Son los datos brutos que alimentan `attendance`. |
 | `attendance` | **Resumen diario de asistencia.** Calculado desde los fichajes: hora de entrada, salida, horas trabajadas, horas extra, estado del día. |
-| `absence_types` | Tipos de ausencia: vacaciones, enfermedad, permiso con/sin goce, maternidad, etc. |
-| `absences` | Ausencias con fechas, motivo y flujo de aprobación. |
+| `absence_types` | Tipos de ausencia con campo `applies_to`: `'partial'` (solo dentro de jornada), `'full_day'` (días completos) o `'both'`. |
+| `absences` | **Una sola tabla para todos los tipos de ausencia.** Columna `absence_scope` distingue entre parciales (1-2h dentro de jornada, con `start_time`/`end_time`) y de día(s) completo(s) (vacaciones, baja, etc.). Flujo de aprobación: `pending → approved / rejected / cancelled`. |
 
-**Ejemplo de fichajes en un día:**
+**Columnas clave de `hr.absences`:**
 ```
-08:01  check_in     (biometric)
-10:00  break_start  (mobile_app)
-10:15  break_end    (mobile_app)
-14:00  break_start  (mobile_app)
-14:30  break_end    (mobile_app)
-17:03  check_out    (biometric)
-→ attendance: 8.45h trabajadas, 0.45h descanso
+absence_scope     'partial' | 'full_day'
+start_date        fecha de inicio (= end_date para parciales)
+end_date          fecha de fin
+start_time        solo parciales: hora inicio  (NULL en full_day)
+end_time          solo parciales: hora fin     (NULL en full_day)
+duration_minutes  solo parciales: minutos calculados
+status            pending | approved | rejected | cancelled
+requested_by      FK hr.employees — quién creó la solicitud
+reviewed_by       FK hr.employees — quién aprobó/rechazó
+reviewed_at       timestamp de la revisión
 ```
+
+**Ejemplo de fichajes en un día (state machine completa):**
+```
+08:01  check_in       → estado: working
+10:00  absence_start  → estado: on_absence  (ausencia parcial registrada con hora custom)
+11:00  absence_end    → estado: working
+14:00  break_start    → estado: on_break    (almuerzo, opcional)
+14:30  break_end      → estado: working
+17:03  check_out      → estado: finished
+→ attendance: horas trabajadas descontando ausencia y almuerzo
+```
+
+**Transiciones válidas de fichaje (`punch_type`):**
+```
+not_started → check_in    → [working]
+[working]   → break_start → [on_break]   → break_end   → [working]
+[working]   → absence_start → [on_absence] → absence_end → [working]
+[working]   → check_out   → [finished]
+```
+Desde `working` las tres acciones (almuerzo, ausencia, salida) son opcionales y simultáneas.
+`absence_start` y `absence_end` aceptan `punchedAt` personalizado (ISO con offset).
 
 ### Capa 4 — Nómina
 
@@ -148,11 +173,38 @@ work_reductions → Juan García (employee_id=47)
 
 ## Reglas generales
 
-- Todas las tablas tienen `id` (número único), `created_at` y `updated_at`.
+- Todas las tablas tienen `id` (BIGSERIAL), `created_at` y `updated_at` (TIMESTAMPTZ, auto-actualizado por trigger).
 - Ningún registro se elimina físicamente: `is_active = FALSE` lo desactiva.
 - Los campos booleanos empiezan con `is_` (ej: `is_active`, `is_primary`).
 - El esquema se llama `hr` y todas las tablas viven dentro de él.
 - Comentarios en el SQL escritos en español.
+- Multi-tenant: toda query filtra por `company_id`.
+
+## Jerarquía de empleados
+
+`hr.employees.reports_to` → jefe actual (conveniencia, para queries rápidas).
+`hr.employee_reporting_history` → historial completo de cambios de jefe con `effective_from`/`effective_to`.
+
+Para cambiar el jefe de un empleado, usar siempre la función helper (nunca actualizar `reports_to` directo):
+```sql
+SELECT hr.set_employee_manager(
+  employee_id,      -- subordinado
+  new_manager_id,   -- nuevo jefe (NULL = sin jefe)
+  'reorganización', -- motivo
+  created_by_id     -- quién hace el cambio
+);
+```
+
+Para saber quién era el jefe en una fecha concreta:
+```sql
+SELECT r.reports_to, p.first_name || ' ' || p.last_name AS manager_name
+FROM hr.employee_reporting_history r
+JOIN hr.employees e ON e.id = r.reports_to
+JOIN hr.persons   p ON p.id = e.person_id
+WHERE r.employee_id  = :employee_id
+  AND r.effective_from <= :fecha
+  AND (r.effective_to IS NULL OR r.effective_to >= :fecha);
+```
 
 ---
 
@@ -165,16 +217,16 @@ work_reductions → Juan García (employee_id=47)
 04_positions.sql
 05_persons.sql               ← identidad (sin campos de documento)
 05b_person_documents.sql     ← historial de documentos
-06_employees.sql
+06_employees.sql             ← incluye reports_to (jefe actual)
 07_contract_types.sql
 08_contracts.sql
 08b_work_reductions.sql      ← reducciones de jornada
 09_schedules_shifts.sql
 10_holidays.sql
-10b_time_punches.sql         ← fichajes brutos
+10b_time_punches.sql         ← fichajes brutos (punch_type incluye absence_start/end)
 11_attendance.sql
-12_absence_types.sql
-13_absences.sql
+12_absence_types.sql         ← incluye applies_to (partial|full_day|both)
+13_absences.sql              ← unifica parciales y días completos (absence_scope)
 14_payroll_concepts.sql
 15_payroll_periods.sql
 16_payroll_details.sql
@@ -190,7 +242,17 @@ work_reductions → Juan García (employee_id=47)
 26_documents.sql             ← siempre al final
 ```
 
-## Cómo correr todo desde la terminal (sin copy-paste)
+## Migraciones aplicadas sobre BD existente
+
+```bash
+# Extender hr.absences para ausencias parciales + categorías
+psql -U postgres -d mantrasdb -f docs/hr/sql/migrate_absences_partial.sql
+
+# Añadir reports_to a hr.employees + tabla hr.employee_reporting_history
+psql -U postgres -d mantrasdb -f docs/hr/sql/migrate_employee_hierarchy.sql
+```
+
+## Cómo correr todo desde cero
 
 ```bash
 # Primera vez

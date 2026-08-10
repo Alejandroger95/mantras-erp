@@ -30,8 +30,8 @@ ERP multi-tenant construido desde cero. Stack principal: Fastify 5 + TypeScript 
 │   │   │   └── rrhh/
 │   │   │       ├── empleados/   ← lista de empleados
 │   │   │       ├── cuadrantes/  ← horarios + turnos (hr.schedules + hr.shifts)
-│   │   │       ├── fichajes/    ← time tracking con state machine
-│   │   │       └── vacaciones/  ← ausencias aprobadas
+│   │   │       ├── fichajes/    ← time tracking con state machine + ausencias parciales
+│   │   │       └── vacaciones/  ← ausencias aprobadas (full_day)
 │   │   ├── lib/
 │   │   │   ├── api.ts    ← axios con interceptor JWT
 │   │   │   └── auth.tsx  ← AuthProvider (token en localStorage)
@@ -42,7 +42,9 @@ ERP multi-tenant construido desde cero. Stack principal: Fastify 5 + TypeScript 
 └── docs/
     └── hr/sql/           ← todos los SQLs del schema HR
         ├── run_hr.sh     ← ejecuta todos los SQLs en orden
-        └── seed_schedules.sql ← datos de prueba para hr.schedules + hr.shifts
+        ├── seed_schedules.sql
+        ├── migrate_absences_partial.sql   ← extiende hr.absences para parciales
+        └── migrate_employee_hierarchy.sql ← añade reports_to + historial de jerarquía
 ```
 
 ## Cómo correr el proyecto
@@ -57,8 +59,9 @@ docker logs mantras-api-api-1 --tail 50  # ver logs
 cd ~/Proyectos/ERP/mantras-web
 npm run dev                   # corre en :3001
 
-# Seed de cuadrantes (solo una vez)
-psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/seed_schedules.sql
+# Migraciones pendientes (correr en orden)
+psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_absences_partial.sql
+psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_employee_hierarchy.sql
 ```
 
 ## Auth de desarrollo
@@ -87,20 +90,62 @@ Cada query recibe `companyId` desde `req.user.companyId` (extraído del JWT). NU
 - `hr.schedules`: tiene `weekly_hours`, NO `total_hours_per_week`. Los días/horas están en `hr.shifts` (tabla separada)
 - `hr.time_punches`: columna `punched_at` (no `punch_time`)
 - `hr.companies`: tiene `trade_name` y `country`, NO `legal_name` ni `country_code`
+- `hr.employees`: tiene `reports_to` (jefe actual, BIGINT FK a hr.employees)
+- `hr.absences`: tiene `absence_scope` ('partial' | 'full_day'), `start_time`, `end_time`, `duration_minutes`, `requested_by`, `reviewed_by`, `reviewed_at`
+- `hr.absence_types`: tiene `applies_to` ('partial' | 'full_day' | 'both')
 
 ### Tipos de fichaje (state machine)
-`null → check_in → break_start → break_end → check_out`
 Columna `punch_type` en `hr.time_punches` es VARCHAR(20).
+
+Estados y transiciones:
+```
+not_started → check_in → [working]
+[working]   → break_start   → [on_break]   → break_end   → [working]
+[working]   → absence_start → [on_absence] → absence_end → [working]
+[working]   → check_out     → [finished]
+```
+
+Desde `working` hay 3 acciones disponibles simultáneamente (almuerzo, ausencia, salida).
+`absence_start` y `absence_end` aceptan `punchedAt` opcional (ISO con offset) para registrar con hora personalizada.
+
+### Ausencias — dos scopes en una misma tabla (hr.absences)
+- **partial**: ausencia dentro de la jornada (1-2h). Tiene `start_time`, `end_time`, `duration_minutes`. `start_date = end_date`.
+- **full_day**: ausencia de día(s) completo(s) (vacaciones, baja, etc.). `start_time` y `end_time` son NULL.
+
+Flujo de aprobación: `pending → approved | rejected | cancelled`
+- `requested_by` = quien creó la solicitud
+- `reviewed_by` = quien aprobó o rechazó (referencia a hr.employees, no a hr.system_users)
+- Para saber quién era el jefe cuando se revisó una ausencia, consultar `hr.employee_reporting_history` por fecha.
+
+### Jerarquía de empleados
+- `hr.employees.reports_to` → jefe actual (conveniencia, para queries rápidas)
+- `hr.employee_reporting_history` → historial completo con `effective_from` / `effective_to`
+  - `effective_to IS NULL` = relación vigente actualmente
+  - Unique index garantiza solo un registro vigente por empleado
+- Para cambiar jefe usar la función: `SELECT hr.set_employee_manager(employee_id, new_manager_id, 'motivo', created_by_id)`
+
+### Query útil: jefe de un empleado en una fecha concreta
+```sql
+SELECT r.reports_to, p.first_name || ' ' || p.last_name AS manager_name
+FROM hr.employee_reporting_history r
+JOIN hr.employees e ON e.id = r.reports_to
+JOIN hr.persons p ON p.id = e.person_id
+WHERE r.employee_id = :employee_id
+  AND r.effective_from <= :fecha
+  AND (r.effective_to IS NULL OR r.effective_to >= :fecha)
+```
 
 ## Módulos frontend completados
 - ✅ Login
 - ✅ Dashboard (stub)
-- ✅ RRHH: Empleados (lista), Cuadrantes, Fichajes (funcional), Vacaciones
+- ✅ RRHH: Empleados (lista), Cuadrantes, Vacaciones
+- ✅ Fichajes: state machine completa + ausencias parciales con categoría, horas y motivo
 - ⏳ Pendiente: detalle de empleado, nóminas, conectar cuadrante→fichaje
 
 ## Pendiente (próxima sesión)
-1. Correr seed: `psql -U postgres -d mantrasdb -f docs/hr/sql/seed_schedules.sql`
-2. Página detalle empleado (`/rrhh/empleados/[id]`)
-3. Módulo nóminas
-4. Validar cuadrante asignado al hacer fichaje
-5. Módulo Agenda (servicios del salón)
+1. Correr migraciones pendientes (ver arriba)
+2. API + frontend para ausencias parciales con categorías y flujo de aprobación
+3. Vista manager: aprobar/rechazar ausencias de su equipo
+4. Página detalle empleado (`/rrhh/empleados/[id]`)
+5. Módulo nóminas
+6. Módulo Agenda (servicios del salón)

@@ -59,7 +59,8 @@ Layer 8 — Documents (transversal)
 |-------|-------------|
 | `persons` ★ | Permanent identity. Name, contact, address. No document data here. |
 | `person_documents` | Full document history per person. Supports NIE→DNI changes, renewals, and losses. `is_primary=TRUE` marks the current active document. |
-| `employees` | Employment period: links person + company. Each rehire = new record with same `person_id`. |
+| `employees` | Employment period: links person + company. Each rehire = new record with same `person_id`. Has `reports_to` (FK to self) for current direct manager. |
+| `employee_reporting_history` | Full manager-history per employee. Each row = one period (`effective_from`/`effective_to`). `effective_to IS NULL` = currently active. Use `hr.set_employee_manager()` to change manager. |
 | `contract_types` | Catalog: fixed salary, hourly, project-based, freelance. |
 | `contracts` | Formal employment contract with position, type, salary, and hours. Full history. |
 | `work_reductions` | Temporary work-hour reductions: paternity, maternity, medical, personal. Tracks original vs. reduced hours, reduction %, and salary impact. |
@@ -74,8 +75,8 @@ Layer 8 — Documents (transversal)
 | `holidays` | Public and company holidays. `company_id` NULL = national. Supports annual recurrence and double pay. |
 | `time_punches` | Raw clock-in/out events (fichajes) from any source: biometric, app, NFC, QR, manual. Feed into attendance after processing. |
 | `attendance` | Daily attendance summary per employee: check-in, check-out, worked hours, status. |
-| `absence_types` | Catalog: vacation, sick leave, unpaid leave, maternity, etc. |
-| `absences` | Absence requests with approval flow. |
+| `absence_types` | Catalog with `applies_to`: `'partial'` (within shift), `'full_day'` (whole days), or `'both'`. |
+| `absences` | **Single table for all absence types.** `absence_scope` column separates partial (1–2h during shift, with `start_time`/`end_time`) from full-day (vacation, sick leave, etc.). Approval flow: `pending → approved / rejected / cancelled`. Fields: `requested_by`, `reviewed_by`, `reviewed_at`. |
 
 ### Layer 4 — Payroll
 
@@ -127,6 +128,19 @@ Layer 8 — Documents (transversal)
 
 **time_punches vs attendance:** `time_punches` stores raw clock events from any device. `attendance` is the computed daily summary. The system processes punches → generates attendance records.
 
+**Punch state machine (time_punches.punch_type):**
+```
+not_started → check_in      → [working]
+[working]   → break_start   → [on_break]    → break_end   → [working]
+[working]   → absence_start → [on_absence]  → absence_end → [working]
+[working]   → check_out     → [finished]
+```
+From `working`, all three actions (break, absence, check-out) are optional and available simultaneously. `absence_start`/`absence_end` accept an optional `punchedAt` (ISO with offset) for retroactive registration.
+
+**absences (single table, two scopes):** Rather than separate tables, one `hr.absences` table with `absence_scope = 'partial' | 'full_day'`. Partial absences have `start_time`/`end_time`/`duration_minutes`; full-day absences leave those NULL. CHECK constraints enforce consistency. This simplifies reporting (total time-off per employee = sum of both scopes).
+
+**employee_reporting_history:** `hr.employees.reports_to` holds the current manager for fast queries. `hr.employee_reporting_history` holds the full period-based history. A unique partial index ensures only one active record per employee (`effective_to IS NULL`). Always use `hr.set_employee_manager()` to change managers — it closes the previous period and opens a new one atomically.
+
 **work_reductions:** Dedicated table (not just a contract field) because reductions have their own legal basis, approval flow, start/end dates, and salary impact that must be tracked independently.
 
 **documents (polymorphic):** One table serves all entities via `entity_type` + `entity_id`. Avoids dozens of duplicate document tables across modules.
@@ -136,12 +150,13 @@ Layer 8 — Documents (transversal)
 ## Conventions
 
 - `id BIGSERIAL PRIMARY KEY` on all tables.
-- `created_at`, `updated_at` on all tables (auto-updated via trigger).
+- `created_at TIMESTAMPTZ`, `updated_at TIMESTAMPTZ` on all tables (auto-updated via trigger `hr.set_updated_at()`).
 - Soft delete: `is_active BOOLEAN DEFAULT TRUE`.
 - Boolean columns prefixed with `is_` (e.g. `is_active`, `is_primary`, `is_current`).
 - Foreign keys: `ON DELETE RESTRICT` by default.
 - Schema prefix: `hr.` on all objects.
 - SQL comments written in Spanish.
+- Multi-tenant: every query must filter by `company_id`.
 
 ---
 
@@ -154,16 +169,16 @@ Layer 8 — Documents (transversal)
 04_positions.sql
 05_persons.sql                -- identity (no document fields)
 05b_person_documents.sql      -- document history per person
-06_employees.sql
+06_employees.sql              -- includes reports_to (current manager)
 07_contract_types.sql
 08_contracts.sql
 08b_work_reductions.sql       -- temporary hour reductions
 09_schedules_shifts.sql
 10_holidays.sql
-10b_time_punches.sql          -- raw clock-in/out events
+10b_time_punches.sql          -- raw clock events (includes absence_start/end types)
 11_attendance.sql
-12_absence_types.sql
-13_absences.sql
+12_absence_types.sql          -- includes applies_to (partial|full_day|both)
+13_absences.sql               -- unified partial + full_day via absence_scope
 14_payroll_concepts.sql
 15_payroll_periods.sql
 16_payroll_details.sql
@@ -179,7 +194,17 @@ Layer 8 — Documents (transversal)
 26_documents.sql              -- transversal, always last
 ```
 
-## Running the full schema
+## Migrations (applied on existing DB)
+
+```bash
+# Extend hr.absences for partial absences + add absence categories
+psql -U postgres -d mantrasdb -f docs/hr/sql/migrate_absences_partial.sql
+
+# Add reports_to to hr.employees + create hr.employee_reporting_history
+psql -U postgres -d mantrasdb -f docs/hr/sql/migrate_employee_hierarchy.sql
+```
+
+## Running the full schema from scratch
 
 ```bash
 # First time

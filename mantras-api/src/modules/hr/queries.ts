@@ -124,22 +124,26 @@ export async function getEmployeePunchStatus(companyId: number) {
 
       -- Estado semántico actual
       CASE
-        WHEN lp.punch_type IS NULL        THEN 'not_started'
-        WHEN lp.punch_type = 'check_in'   THEN 'working'
-        WHEN lp.punch_type = 'break_start' THEN 'on_break'
-        WHEN lp.punch_type = 'break_end'  THEN 'working'
-        WHEN lp.punch_type = 'check_out'  THEN 'finished'
+        WHEN lp.punch_type IS NULL             THEN 'not_started'
+        WHEN lp.punch_type = 'check_in'        THEN 'working'
+        WHEN lp.punch_type = 'break_start'     THEN 'on_break'
+        WHEN lp.punch_type = 'break_end'       THEN 'working'
+        WHEN lp.punch_type = 'absence_start'   THEN 'on_absence'
+        WHEN lp.punch_type = 'absence_end'     THEN 'working'
+        WHEN lp.punch_type = 'check_out'       THEN 'finished'
         ELSE 'working'
       END                                             AS current_status,
 
-      -- Próxima acción a realizar
+      -- Próxima acción principal (para estados lineales; working usa múltiples opciones en frontend)
       CASE
-        WHEN lp.punch_type IS NULL         THEN 'check_in'
-        WHEN lp.punch_type = 'check_in'   THEN 'break_start'
-        WHEN lp.punch_type = 'break_start' THEN 'break_end'
-        WHEN lp.punch_type = 'break_end'  THEN 'check_out'
-        WHEN lp.punch_type = 'check_out'  THEN NULL
-        ELSE 'check_out'
+        WHEN lp.punch_type IS NULL             THEN 'check_in'
+        WHEN lp.punch_type = 'check_in'        THEN 'working_options'
+        WHEN lp.punch_type = 'break_start'     THEN 'break_end'
+        WHEN lp.punch_type = 'break_end'       THEN 'working_options'
+        WHEN lp.punch_type = 'absence_start'   THEN 'absence_end'
+        WHEN lp.punch_type = 'absence_end'     THEN 'working_options'
+        WHEN lp.punch_type = 'check_out'       THEN NULL
+        ELSE 'working_options'
       END                                             AS next_action
 
     FROM hr.employees        e
@@ -160,11 +164,20 @@ export async function registerPunch(companyId: number, data: {
   employeeId: number
   punchType:  string
   notes?:     string
+  punchedAt?: string  // ISO string con offset; si no se pasa, usa NOW()
 }) {
+  const ts = data.punchedAt ? new Date(data.punchedAt) : null
   const [punch] = await sql`
-    INSERT INTO hr.time_punches (company_id, employee_id, punch_type, punched_at, source)
-    VALUES (${companyId}, ${data.employeeId}, ${data.punchType}, NOW(), 'web')
-    RETURNING id, punch_type, punched_at
+    INSERT INTO hr.time_punches (company_id, employee_id, punch_type, punched_at, notes, source)
+    VALUES (
+      ${companyId},
+      ${data.employeeId},
+      ${data.punchType},
+      ${ts ?? sql`NOW()`},
+      ${data.notes ?? null},
+      'web'
+    )
+    RETURNING id, punch_type, punched_at, notes
   `
   return punch
 }
