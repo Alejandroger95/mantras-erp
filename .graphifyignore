@@ -22,6 +22,14 @@ Dockerfile
 # Git
 .git/
 
-# Archivos de seeds y migraciones históricas (demasiados duplicados)
+# Docs de módulos que aún no están construidos
+# (solo queremos hr/ activo por ahora)
+docs/logistics/
+docs/sales/
+docs/finance/
+docs/production/
+docs/projects/
+docs/surveys/
+docs/services/
 docs/hr/sql/seed_*.sql
 docs/hr/sql/run_hr.sh
