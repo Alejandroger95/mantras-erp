@@ -149,6 +149,30 @@ WHERE r.employee_id = :employee_id
 - ✅ Fichajes: state machine completa + ausencias parciales con categoría, horas y motivo
 - ⏳ Pendiente: detalle de empleado, nóminas, conectar cuadrante→fichaje
 
+## Roles y permisos (RBAC)
+
+Modelo de permisos dinámico — roles configurables por empresa:
+
+- `hr.roles` → catálogo de roles por empresa (`base_level`: admin bypasea todo; employee depende de permisos)
+- `hr.role_permissions` → permisos asignados a cada rol (strings `modulo.accion`)
+- `hr.system_users.role_id` → FK al rol asignado
+
+Roles base creados automáticamente por empresa: Administrador, Supervisor, Jefe de equipo, Empleado, RRHH, Solo lectura.
+
+Permisos disponibles:
+```
+punches.view_own | view_team | cancel | annul | create_retroactive | edit_time
+absences.view_own | view_team | request | approve | reject | manage_all
+employees.view_team | view_all | edit
+reports.view_team | view_company
+audit.view | company.settings | work_locations.manage | schedules.manage
+module.hr | module.logistics | module.sales | module.finance | module.production | module.projects
+```
+
+El sistema RBAC aplica a todos los módulos — el mismo `role_id` en `hr.system_users` controla acceso a HR, Logística, Ventas, Finanzas, Producción y Proyectos via los permisos `module.*`.
+
+Regla de aprobación de ausencias: siempre va al `reports_to` del empleado (responsable directo), independiente del rol en el sistema.
+
 ## Pendiente (próxima sesión)
 1. Correr migraciones pendientes (ver arriba)
 2. API + frontend para ausencias parciales con categorías y flujo de aprobación
