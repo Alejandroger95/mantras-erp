@@ -48,18 +48,35 @@ ERP multi-tenant construido desde cero. Stack principal: Fastify 5 + TypeScript 
 ```
 
 ## Cómo correr el proyecto
+
+### Iniciar
 ```bash
-# API (Docker)
+# 1. API (Docker)
 cd ~/Proyectos/ERP/mantras-api
 docker compose up -d          # levanta API en :3000
-docker compose restart api    # recarga cuando editas src/ (hot-reload Mac+Docker no es confiable)
-docker logs mantras-api-api-1 --tail 50  # ver logs
 
-# Frontend
+# 2. Frontend (en otra terminal)
 cd ~/Proyectos/ERP/mantras-web
 npm run dev                   # corre en :3001
+```
 
-# Migraciones pendientes (correr en orden)
+### Parar
+```bash
+# Detener API
+cd ~/Proyectos/ERP/mantras-api
+docker compose down
+
+# Detener frontend → Ctrl+C en la terminal donde corre npm run dev
+```
+
+### Comandos útiles de API
+```bash
+docker compose restart api                        # recargar después de editar src/
+docker logs mantras-api-api-1 --tail 50          # ver logs
+```
+
+### Migraciones pendientes (correr en orden)
+```bash
 psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_absences_partial.sql
 psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_employee_hierarchy.sql
 psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_time_punches_v2.sql
@@ -68,6 +85,28 @@ psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_permission_
 psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_teams.sql
 psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_notifications.sql
 ```
+
+## Flujo de trabajo — siempre al terminar una sesión
+
+### 1. Git commit + push
+El sandbox de Claude no tiene credenciales de GitHub. Siempre correr desde la terminal del Mac:
+```bash
+cd ~/Proyectos/ERP
+rm -f .git/HEAD.lock .git/index.lock   # si hay lock de sesión anterior
+git add -A
+git commit -m "descripción del cambio"
+git push
+```
+
+### 2. Actualizar grafos Graphify → Obsidian
+Doble clic en `update_graphify.command`, o desde terminal:
+```bash
+cd ~/Proyectos/ERP && bash update_graphify.command
+```
+- El script corre `graphify .` respetando `.graphifyignore` (excluye node_modules, venv, docs de módulos sin construir)
+- Exporta los nodos a `graphify-out/obsidian/` que es el vault de Obsidian
+- El vault de Obsidian apunta a `~/Proyectos/ERP/graphify-out/obsidian/`
+- Después de correr el script, cerrar y reabrir Obsidian para que recargue el índice
 
 ## Auth de desarrollo
 - Login: `admin@mantras.pe` / password = valor de `cognito_user_id` en la tabla `hr.system_users`
