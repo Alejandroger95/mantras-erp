@@ -89,7 +89,8 @@ work_reductions → Juan García (employee_id=47)
 | `shifts` | Turnos por día dentro de un horario (lunes 8am-4pm, etc.). |
 | `holiday_types` | Tipos de festivo: nacional, regional, de empresa, puente. |
 | `holidays` | Días festivos. Si `company_id` está vacío aplica a todo el país. Soporta recurrencia anual y pago doble. |
-| `time_punches` | **Los fichajes.** Eventos individuales de entrada/salida tal como llegan del dispositivo: biométrico, app, NFC, QR o manual. Cada punch tiene tipo (`check_in`, `break_start`, etc.), origen y opcionalmente geolocalización. Son los datos brutos que alimentan `attendance`. |
+| `work_locations` | **Zonas de trabajo con geofence.** Cada ubicación tiene `latitude`, `longitude` y `radius_meters`. Cuando el empleado ficha dentro del radio, se asocia automáticamente via `hr.match_work_location()`. |
+| `time_punches` | **Los fichajes.** Eventos individuales con estado (`punch_status`: `active` / `cancelled` / `annulled`). Incluye auditoría completa: quién canceló, quién editó la hora, si corrige otro punch (`original_punch_id`), IP, geolocalización y ubicación reconocida por geofencing. |
 | `attendance` | **Resumen diario de asistencia.** Calculado desde los fichajes: hora de entrada, salida, horas trabajadas, horas extra, estado del día. |
 | `absence_types` | Tipos de ausencia con campo `applies_to`: `'partial'` (solo dentro de jornada), `'full_day'` (días completos) o `'both'`. |
 | `absences` | **Una sola tabla para todos los tipos de ausencia.** Columna `absence_scope` distingue entre parciales (1-2h dentro de jornada, con `start_time`/`end_time`) y de día(s) completo(s) (vacaciones, baja, etc.). Flujo de aprobación: `pending → approved / rejected / cancelled`. |
@@ -121,13 +122,51 @@ reviewed_at       timestamp de la revisión
 
 **Transiciones válidas de fichaje (`punch_type`):**
 ```
-not_started → check_in    → [working]
-[working]   → break_start → [on_break]   → break_end   → [working]
-[working]   → absence_start → [on_absence] → absence_end → [working]
-[working]   → check_out   → [finished]
+not_started → check_in      → [working]
+[working]   → break_start   → [on_break]    → break_end   → [working]
+[working]   → absence_start → [on_absence]  → absence_end → [working]
+[working]   → check_out     → [finished]
 ```
 Desde `working` las tres acciones (almuerzo, ausencia, salida) son opcionales y simultáneas.
 `absence_start` y `absence_end` aceptan `punchedAt` personalizado (ISO con offset).
+
+**Estados de un fichaje (`punch_status`):**
+```
+active    = fichaje válido y vigente (única que cuentan para attendance)
+cancelled = error del empleado; cancelado por él mismo o por manager/admin
+annulled  = anulado administrativamente por admin/manager
+```
+
+**Flujo de corrección de fichaje erróneo:**
+```
+1. Empleado ficha mal → punch_status = 'active'
+2. Admin crea nuevo punch correcto → original_punch_id apunta al erróneo
+3. Admin cancela el erróneo       → punch_status = 'cancelled', cancel_reason
+4. Todas las queries filtran      → WHERE punch_status = 'active'
+```
+
+**Fichaje retroactivo por admin:**
+```
+source = 'admin_created', recorded_by = admin_id
+punched_at = fecha/hora que corresponde (puede ser ayer o antes)
+notes = 'Empleado olvidó fichar entrada del 2026-08-09'
+```
+
+**Edición de hora por admin:**
+```
+original_punched_at = hora original (backup)
+punched_at          = hora corregida
+modified_by         = admin_id
+modified_at         = NOW()
+```
+
+**Geofencing (`hr.match_work_location`):**
+```sql
+-- La API llama esto al registrar un fichaje con coordenadas:
+SELECT * FROM hr.match_work_location(company_id, latitude, longitude);
+-- Devuelve: location_id, location_name, distance_m
+-- NULL si el punto está fuera de todas las zonas definidas
+```
 
 ### Capa 4 — Nómina
 
@@ -250,6 +289,9 @@ psql -U postgres -d mantrasdb -f docs/hr/sql/migrate_absences_partial.sql
 
 # Añadir reports_to a hr.employees + tabla hr.employee_reporting_history
 psql -U postgres -d mantrasdb -f docs/hr/sql/migrate_employee_hierarchy.sql
+
+# work_locations (geofencing) + mejoras a time_punches (estados, auditoría, IP)
+psql -U postgres -d mantrasdb -f docs/hr/sql/migrate_time_punches_v2.sql
 ```
 
 ## Cómo correr todo desde cero

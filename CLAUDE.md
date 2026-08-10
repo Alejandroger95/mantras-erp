@@ -62,6 +62,7 @@ npm run dev                   # corre en :3001
 # Migraciones pendientes (correr en orden)
 psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_absences_partial.sql
 psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_employee_hierarchy.sql
+psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_time_punches_v2.sql
 ```
 
 ## Auth de desarrollo
@@ -93,13 +94,15 @@ Cada query recibe `companyId` desde `req.user.companyId` (extraído del JWT). NU
 - `hr.employees`: tiene `reports_to` (jefe actual, BIGINT FK a hr.employees)
 - `hr.absences`: tiene `absence_scope` ('partial' | 'full_day'), `start_time`, `end_time`, `duration_minutes`, `requested_by`, `reviewed_by`, `reviewed_at`
 - `hr.absence_types`: tiene `applies_to` ('partial' | 'full_day' | 'both')
+- `hr.work_locations`: zonas de trabajo con geofence (`latitude`, `longitude`, `radius_meters`)
+- `hr.time_punches`: tiene `punch_status` ('active' | 'cancelled' | 'annulled'), `cancelled_by`, `cancelled_at`, `cancel_reason`, `original_punched_at`, `modified_by`, `modified_at`, `original_punch_id`, `ip_address`, `location_id` (FK → work_locations), `location_match_distance_m`
 
 ### Tipos de fichaje (state machine)
 Columna `punch_type` en `hr.time_punches` es VARCHAR(20).
 
 Estados y transiciones:
 ```
-not_started → check_in → [working]
+not_started → check_in      → [working]
 [working]   → break_start   → [on_break]   → break_end   → [working]
 [working]   → absence_start → [on_absence] → absence_end → [working]
 [working]   → check_out     → [finished]
@@ -107,6 +110,10 @@ not_started → check_in → [working]
 
 Desde `working` hay 3 acciones disponibles simultáneamente (almuerzo, ausencia, salida).
 `absence_start` y `absence_end` aceptan `punchedAt` opcional (ISO con offset) para registrar con hora personalizada.
+
+Queries de estado solo leen `WHERE punch_status = 'active'`. Los cancelados/anulados se conservan para auditoría.
+
+Función geofencing: `SELECT * FROM hr.match_work_location(company_id, lat, lon)` — devuelve la work_location dentro del radio más pequeño, o NULL si ninguna coincide.
 
 ### Ausencias — dos scopes en una misma tabla (hr.absences)
 - **partial**: ausencia dentro de la jornada (1-2h). Tiene `start_time`, `end_time`, `duration_minutes`. `start_date = end_date`.
