@@ -1,0 +1,27 @@
+# Dependencias — nunca analizar
+node_modules/
+venv/
+.venv/
+
+# Salida del propio graphify
+graphify-out/
+
+# Archivos de build y caché
+.next/
+dist/
+build/
+__pycache__/
+*.pyc
+
+# Docker y configs
+docker-compose.yml
+Dockerfile
+*.env
+.env*
+
+# Git
+.git/
+
+# Archivos de seeds y migraciones históricas (demasiados duplicados)
+docs/hr/sql/seed_*.sql
+docs/hr/sql/run_hr.sh
