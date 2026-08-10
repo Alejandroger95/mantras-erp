@@ -1,16 +1,16 @@
 -- ============================================================
 -- MIGRACIÓN: hr.teams + hr.team_members
 -- ============================================================
--- Equipos operativos de trabajo — separado de la jerarquía de
--- aprobación (reports_to) y de los equipos de proyecto.
+-- Equipos operativos de trabajo — separado de:
+--   · reports_to         → jerarquía de aprobación
+--   · project_members    → equipos de proyecto
 --
--- hr.teams        → catálogo de equipos por empresa
--- hr.team_members → asignación de empleados con historial completo
---
--- Principio: igual que hr.employee_reporting_history
---   · Nunca se borran registros
---   · left_at IS NULL = miembro activo hoy
---   · Historial completo de movimientos de cada empleado
+-- Reglas clave:
+--   · Un empleado puede estar en MÚLTIPLES equipos simultáneamente
+--   · Un empleado puede ser líder en un equipo y miembro en otros
+--   · Un equipo puede existir SIN líder temporalmente
+--   · Nunca se borran registros — is_cancelled para errores
+--   · left_at IS NULL AND is_cancelled = FALSE → membresía activa
 -- ============================================================
 
 BEGIN;
@@ -24,17 +24,15 @@ CREATE TABLE IF NOT EXISTS hr.teams (
     name            VARCHAR(150)    NOT NULL,
     description     TEXT,
 
-    -- Tipo de equipo
     team_type       VARCHAR(30)     NOT NULL DEFAULT 'operational',
-    -- 'operational' → equipo de trabajo del día a día (Equipo Ventas Norte)
+    -- 'operational' → equipo del día a día (Equipo Ventas Norte)
     -- 'shift'       → equipo por turno (Turno Mañana, Turno Noche)
-    -- 'functional'  → equipo funcional transversal (Equipo Calidad)
+    -- 'functional'  → equipo transversal (Comité de Calidad)
 
-    -- Líder actual del equipo (conveniencia, igual que reports_to)
-    -- El historial de líderes está en hr.team_members con role = 'leader'
+    -- Líder actual (conveniencia — puede ser NULL si no hay líder)
+    -- Historial de líderes en hr.team_members WHERE role = 'leader'
     leader_id       BIGINT          REFERENCES hr.employees(id),
 
-    -- Departamento al que pertenece el equipo (opcional)
     department_id   BIGINT          REFERENCES hr.departments(id),
 
     is_active       BOOLEAN         NOT NULL DEFAULT TRUE,
@@ -56,13 +54,11 @@ CREATE INDEX IF NOT EXISTS idx_teams_leader     ON hr.teams (leader_id);
 CREATE INDEX IF NOT EXISTS idx_teams_department ON hr.teams (department_id);
 CREATE INDEX IF NOT EXISTS idx_teams_active     ON hr.teams (company_id) WHERE is_active = true;
 
-COMMENT ON TABLE  hr.teams             IS 'Equipos operativos de trabajo. Separado de reports_to (aprobaciones) y de project_members (proyectos).';
-COMMENT ON COLUMN hr.teams.leader_id   IS 'Líder actual del equipo (conveniencia). Historial completo en hr.team_members con role=leader.';
-COMMENT ON COLUMN hr.teams.team_type   IS 'operational | shift | functional';
+COMMENT ON TABLE  hr.teams            IS 'Equipos operativos. Separado de reports_to (aprobaciones) y project_members (proyectos).';
+COMMENT ON COLUMN hr.teams.leader_id  IS 'Líder actual (conveniencia). NULL = equipo sin líder. Historial en hr.team_members role=leader.';
+COMMENT ON COLUMN hr.teams.team_type  IS 'operational | shift | functional';
 
 -- ── 2. hr.team_members ────────────────────────────────────────────────────────
--- Historial completo de asignaciones. Nunca se borran filas.
--- joined_at / left_at definen el período de pertenencia.
 
 CREATE TABLE IF NOT EXISTS hr.team_members (
     id              BIGSERIAL       PRIMARY KEY,
@@ -70,21 +66,25 @@ CREATE TABLE IF NOT EXISTS hr.team_members (
     team_id         BIGINT          NOT NULL REFERENCES hr.teams(id) ON DELETE RESTRICT,
     employee_id     BIGINT          NOT NULL REFERENCES hr.employees(id) ON DELETE RESTRICT,
 
-    -- Rol dentro del equipo
     role            VARCHAR(20)     NOT NULL DEFAULT 'member',
-    -- 'leader' → coordina el equipo (puede coincidir o no con el aprobador)
-    -- 'member' → integrante del equipo
+    -- 'leader' → coordina el equipo (no implica ser aprobador de ausencias)
+    -- 'member' → integrante
 
     -- Período de pertenencia
     joined_at       DATE            NOT NULL DEFAULT CURRENT_DATE,
     left_at         DATE,
-    -- NULL = miembro activo hoy
+    -- NULL = aún activo en este equipo
 
-    -- Motivo del movimiento (entrada o salida)
+    -- Cancelación por error (sin borrar el registro)
+    is_cancelled        BOOLEAN     NOT NULL DEFAULT FALSE,
+    cancel_reason       TEXT,
+    cancelled_by        BIGINT      REFERENCES hr.employees(id),
+    cancelled_at        TIMESTAMPTZ,
+
+    -- Motivo del movimiento
     reason          VARCHAR(200),
-    -- 'incorporación', 'reorganización', 'cambio de turno', 'baja del equipo'
 
-    -- Quién hizo el movimiento
+    -- Quién registró el movimiento
     created_by      BIGINT          REFERENCES hr.employees(id),
 
     created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
@@ -101,32 +101,34 @@ CREATE TRIGGER trg_team_members_updated_at
     FOR EACH ROW EXECUTE FUNCTION hr.set_updated_at();
 
 -- Solo un líder activo por equipo a la vez
+-- (pero ese líder puede ser líder en otros equipos sin restricción)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_team_members_one_leader
     ON hr.team_members (team_id)
-    WHERE role = 'leader' AND left_at IS NULL;
+    WHERE role = 'leader' AND left_at IS NULL AND is_cancelled = FALSE;
 
--- Solo una membresía activa por empleado por equipo
-CREATE UNIQUE INDEX IF NOT EXISTS idx_team_members_active
-    ON hr.team_members (team_id, employee_id)
-    WHERE left_at IS NULL;
+-- NO hay unique en membresía activa por empleado por equipo:
+-- un empleado puede estar en múltiples equipos simultáneamente
 
-CREATE INDEX IF NOT EXISTS idx_team_members_team     ON hr.team_members (team_id);
-CREATE INDEX IF NOT EXISTS idx_team_members_employee ON hr.team_members (employee_id);
-CREATE INDEX IF NOT EXISTS idx_team_members_company  ON hr.team_members (company_id);
-CREATE INDEX IF NOT EXISTS idx_team_members_active_all
-    ON hr.team_members (company_id, employee_id)
-    WHERE left_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_team_members_team      ON hr.team_members (team_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_employee  ON hr.team_members (employee_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_company   ON hr.team_members (company_id);
+-- Membresías activas (para dashboards y vistas de equipo)
+CREATE INDEX IF NOT EXISTS idx_team_members_active
+    ON hr.team_members (company_id, team_id, employee_id)
+    WHERE left_at IS NULL AND is_cancelled = FALSE;
 
-COMMENT ON TABLE  hr.team_members            IS 'Historial de asignaciones a equipos. Nunca se borran — left_at IS NULL = miembro activo.';
-COMMENT ON COLUMN hr.team_members.role       IS 'leader | member';
-COMMENT ON COLUMN hr.team_members.joined_at  IS 'Fecha de incorporación al equipo';
-COMMENT ON COLUMN hr.team_members.left_at    IS 'Fecha de salida del equipo. NULL = activo hoy.';
-COMMENT ON COLUMN hr.team_members.reason     IS 'Motivo del movimiento: incorporación, reorganización, cambio de turno, etc.';
-COMMENT ON COLUMN hr.team_members.created_by IS 'Admin o manager que registró el movimiento';
+COMMENT ON TABLE  hr.team_members                IS 'Historial de asignaciones a equipos. Nunca se borran — usar is_cancelled para errores.';
+COMMENT ON COLUMN hr.team_members.role           IS 'leader | member. Un empleado puede ser líder en un equipo y miembro en otros.';
+COMMENT ON COLUMN hr.team_members.joined_at      IS 'Fecha de incorporación';
+COMMENT ON COLUMN hr.team_members.left_at        IS 'Fecha de salida. NULL = activo.';
+COMMENT ON COLUMN hr.team_members.is_cancelled   IS 'TRUE = asignación por error. Se conserva para auditoría pero no cuenta como activa.';
+COMMENT ON COLUMN hr.team_members.cancel_reason  IS 'Motivo de la cancelación por error';
 
--- ── 3. Función helper: añadir empleado a un equipo ───────────────────────────
--- Si ya tiene una membresía activa en ese equipo, la cierra primero.
--- Uso: SELECT hr.assign_team_member(team_id, employee_id, 'member', 'reorganización', created_by_id);
+-- ── 3. hr.assign_team_member ─────────────────────────────────────────────────
+-- Añade un empleado a un equipo.
+-- Si ya tiene membresía activa en ese equipo, la cierra antes de abrir una nueva.
+-- Si el rol es líder, desplaza al líder actual cerrando su período.
+-- Un empleado puede estar en múltiples equipos — no cierra otras membresías.
 
 CREATE OR REPLACE FUNCTION hr.assign_team_member(
     p_team_id       BIGINT,
@@ -143,22 +145,26 @@ DECLARE
 BEGIN
     SELECT company_id INTO v_company_id FROM hr.teams WHERE id = p_team_id;
 
-    -- Si hay membresía activa en este equipo, cerrarla
+    -- Cerrar membresía activa previa en ESTE equipo (si existe)
     UPDATE hr.team_members
-       SET left_at = p_joined_at - INTERVAL '1 day',
-           reason  = COALESCE(reason, p_reason)
+       SET left_at    = p_joined_at - INTERVAL '1 day',
+           reason     = COALESCE(reason, 'reingreso al equipo'),
+           updated_at = NOW()
      WHERE team_id     = p_team_id
        AND employee_id = p_employee_id
-       AND left_at     IS NULL;
+       AND left_at     IS NULL
+       AND is_cancelled = FALSE;
 
-    -- Si el nuevo rol es líder, cerrar el líder actual
+    -- Si el nuevo rol es líder, desplazar al líder actual
     IF p_role = 'leader' THEN
         UPDATE hr.team_members
-           SET left_at = p_joined_at - INTERVAL '1 day',
-               reason  = COALESCE(reason, 'cambio de líder')
-         WHERE team_id = p_team_id
-           AND role    = 'leader'
-           AND left_at IS NULL
+           SET left_at    = p_joined_at - INTERVAL '1 day',
+               reason     = COALESCE(reason, 'cambio de líder'),
+               updated_at = NOW()
+         WHERE team_id     = p_team_id
+           AND role        = 'leader'
+           AND left_at     IS NULL
+           AND is_cancelled = FALSE
            AND employee_id != p_employee_id;
 
         -- Actualizar conveniencia en hr.teams
@@ -176,8 +182,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- ── 4. Función helper: sacar empleado de un equipo ───────────────────────────
--- Uso: SELECT hr.remove_team_member(team_id, employee_id, 'baja del equipo', created_by_id);
+-- ── 4. hr.remove_team_member ──────────────────────────────────────────────────
+-- Saca a un empleado de un equipo cerrando su membresía activa.
+-- Si era el líder, deja el equipo sin líder (leader_id = NULL).
 
 CREATE OR REPLACE FUNCTION hr.remove_team_member(
     p_team_id       BIGINT,
@@ -194,19 +201,51 @@ BEGIN
            updated_at = NOW()
      WHERE team_id     = p_team_id
        AND employee_id = p_employee_id
-       AND left_at     IS NULL;
+       AND left_at     IS NULL
+       AND is_cancelled = FALSE;
 
-    -- Si era el líder, limpiar la conveniencia en hr.teams
+    -- Si era el líder, limpiar conveniencia
     UPDATE hr.teams
        SET leader_id = NULL
-     WHERE id = p_team_id
+     WHERE id        = p_team_id
        AND leader_id = p_employee_id;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION hr.assign_team_member IS
-    'Asigna un empleado a un equipo. Cierra membresía anterior si existe. Si role=leader, desplaza al líder actual.';
-COMMENT ON FUNCTION hr.remove_team_member IS
-    'Saca a un empleado de un equipo cerrando su membresía (left_at). No borra el registro histórico.';
+-- ── 5. hr.cancel_team_member ──────────────────────────────────────────────────
+-- Cancela una asignación por error. No borra el registro.
+
+CREATE OR REPLACE FUNCTION hr.cancel_team_member(
+    p_member_id     BIGINT,
+    p_cancel_reason TEXT            DEFAULT NULL,
+    p_cancelled_by  BIGINT          DEFAULT NULL
+)
+RETURNS VOID AS $$
+DECLARE
+    v_member hr.team_members;
+BEGIN
+    SELECT * INTO v_member FROM hr.team_members WHERE id = p_member_id;
+
+    UPDATE hr.team_members
+       SET is_cancelled  = TRUE,
+           cancel_reason = p_cancel_reason,
+           cancelled_by  = p_cancelled_by,
+           cancelled_at  = NOW(),
+           updated_at    = NOW()
+     WHERE id = p_member_id;
+
+    -- Si era líder activo, limpiar conveniencia en hr.teams
+    IF v_member.role = 'leader' AND v_member.left_at IS NULL THEN
+        UPDATE hr.teams
+           SET leader_id = NULL
+         WHERE id        = v_member.team_id
+           AND leader_id = v_member.employee_id;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION hr.assign_team_member  IS 'Añade empleado al equipo. Cierra membresía previa en ESE equipo. Si es líder, desplaza al actual. No toca otras membresías en otros equipos.';
+COMMENT ON FUNCTION hr.remove_team_member  IS 'Saca empleado del equipo cerrando membresía activa. El equipo puede quedar sin líder.';
+COMMENT ON FUNCTION hr.cancel_team_member  IS 'Cancela asignación por error sin borrar el registro. Audit trail completo.';
 
 COMMIT;

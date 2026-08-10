@@ -63,6 +63,9 @@ npm run dev                   # corre en :3001
 psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_absences_partial.sql
 psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_employee_hierarchy.sql
 psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_time_punches_v2.sql
+psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_rbac.sql
+psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_permission_catalog.sql
+psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_teams.sql
 ```
 
 ## Auth de desarrollo
@@ -189,11 +192,17 @@ Tres conceptos separados y distintos:
 - `hr.teams` + `hr.team_members` → agrupación operativa del día a día (Equipo Ventas Norte, Turno Mañana)
 - `projects.project_members` → equipo de un proyecto concreto
 
-`hr.teams`: catálogo de equipos con `team_type` (operational | shift | functional), `leader_id` (conveniencia).
+`hr.teams`: catálogo de equipos con `team_type` (operational | shift | functional), `leader_id` (conveniencia, puede ser NULL).
 `hr.team_members`: historial completo de asignaciones — `joined_at` / `left_at` (NULL = activo). Nunca se borran filas.
-- Unique index: solo un líder activo por equipo, solo una membresía activa por empleado por equipo.
-- `hr.assign_team_member(team_id, employee_id, role, reason, created_by)` → mueve empleado (cierra anterior, abre nueva).
-- `hr.remove_team_member(team_id, employee_id, reason, created_by)` → saca empleado del equipo.
+- Un empleado puede estar en **múltiples equipos simultáneamente** (sin restricción).
+- Un empleado puede ser líder en un equipo y miembro en otros.
+- Un equipo puede existir **sin líder** temporalmente.
+- Membresía activa = `left_at IS NULL AND is_cancelled = FALSE`.
+- `is_cancelled` / `cancel_reason` / `cancelled_by` / `cancelled_at` → cancelar asignaciones por error sin borrar historial.
+- Unique index: **solo un líder activo por equipo** (`WHERE role = 'leader' AND left_at IS NULL AND is_cancelled = FALSE`).
+- `hr.assign_team_member(team_id, employee_id, role, reason, created_by, joined_at)` → cierra membresía previa en ESE equipo, desplaza líder actual si role='leader'.
+- `hr.remove_team_member(team_id, employee_id, reason, created_by)` → saca empleado del equipo. El equipo puede quedar sin líder.
+- `hr.cancel_team_member(member_id, cancel_reason, cancelled_by)` → cancela asignación por error, audit trail completo.
 
 ## Pendiente (próxima sesión)
 1. Correr migraciones pendientes (ver arriba)
