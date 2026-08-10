@@ -66,6 +66,7 @@ psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_time_punche
 psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_rbac.sql
 psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_permission_catalog.sql
 psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_teams.sql
+psql -U postgres -d mantrasdb -f ~/Proyectos/ERP/docs/hr/sql/migrate_notifications.sql
 ```
 
 ## Auth de desarrollo
@@ -204,6 +205,13 @@ Tres conceptos separados y distintos:
 - `hr.remove_team_member(team_id, employee_id, reason, created_by)` → saca empleado del equipo. El equipo puede quedar sin líder.
 - `hr.cancel_team_member(member_id, cancel_reason, cancelled_by)` → cancela asignación por error, audit trail completo.
 
+## Notificaciones in-app (hr.notifications)
+
+- `hr.notifications` → una fila por notificación, por destinatario. Campos: `recipient_id`, `sender_id` (NULL = sistema), `type`, `entity_type` + `entity_id` (deep-link), `title`, `body`, `is_read`, `read_at`.
+- `hr.notification_preferences` → preferencias por empleado y tipo. Canal `in_app` activo ahora; `email` y `push` para el futuro.
+- Las notificaciones se generan desde la API al ocurrir el evento (no hay cron ni cola).
+- Tipos definidos: `absence_requested` | `absence_approved` | `absence_rejected` | `absence_cancelled` | `punch_cancelled` | `punch_annulled` | `punch_created_retro` | `punch_time_edited`
+
 ## Pendiente (próxima sesión)
 1. Correr migraciones pendientes (ver arriba)
 2. API + frontend para ausencias parciales con categorías y flujo de aprobación
@@ -211,3 +219,4 @@ Tres conceptos separados y distintos:
 4. Página detalle empleado (`/rrhh/empleados/[id]`)
 5. Módulo nóminas
 6. Módulo Agenda (servicios del salón)
+7. Frontend notificaciones: campana + badge de no leídas + lista
