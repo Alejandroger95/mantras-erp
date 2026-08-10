@@ -61,6 +61,8 @@ Capa 8 — Documentos (aplica a todo)
 | `person_documents` | **Historial de documentos de identidad.** Cuando alguien cambia de NIE a DNI, el NIE queda como histórico y el DNI queda activo (`is_primary=TRUE`). También registra renovaciones, pérdidas y cambios de nombre. |
 | `employees` | **El período de trabajo.** Liga a la persona con la empresa. Si alguien renuncia y regresa, se crea un nuevo registro aquí pero apuntando al mismo `person_id`. Tiene `reports_to` (FK a sí misma) con el jefe directo actual. |
 | `employee_reporting_history` | **Historial de jerarquía.** Cada fila es un período en el que un empleado reportaba a un jefe (`effective_from` / `effective_to`). `effective_to IS NULL` = vigente hoy. Función helper: `hr.set_employee_manager()`. |
+| `teams` | **Equipos operativos de trabajo.** Separado de `reports_to` (aprobaciones) y de `project_members` (proyectos). Tipos: `operational`, `shift`, `functional`. Tiene `leader_id` como conveniencia. |
+| `team_members` | **Historial de asignaciones a equipos.** `joined_at` / `left_at` (NULL = activo hoy). Nunca se borran filas. Unique index: un líder activo por equipo, una membresía activa por empleado por equipo. Funciones: `hr.assign_team_member()`, `hr.remove_team_member()`. |
 | `contract_types` | Tipos de contrato: planilla fija, por horas, por proyecto, honorarios. |
 | `contracts` | El contrato: qué empleado, qué puesto, qué tipo, con qué sueldo y desde cuándo. Historial completo. |
 | `work_reductions` | **Reducción de jornada temporal.** Paternidad, maternidad, médica, cuidado familiar. Guarda las horas originales, las reducidas, el porcentaje calculado automáticamente, si el salario baja proporcionalmente y el respaldo legal (artículo de ley). |
@@ -292,6 +294,12 @@ psql -U postgres -d mantrasdb -f docs/hr/sql/migrate_employee_hierarchy.sql
 
 # work_locations (geofencing) + mejoras a time_punches (estados, auditoría, IP)
 psql -U postgres -d mantrasdb -f docs/hr/sql/migrate_time_punches_v2.sql
+
+# RBAC — roles y permisos dinámicos
+psql -U postgres -d mantrasdb -f docs/hr/sql/migrate_rbac.sql
+
+# Equipos operativos con historial de asignaciones
+psql -U postgres -d mantrasdb -f docs/hr/sql/migrate_teams.sql
 ```
 
 ## Cómo correr todo desde cero

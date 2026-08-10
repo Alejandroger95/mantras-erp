@@ -159,19 +159,41 @@ Modelo de permisos dinámico — roles configurables por empresa:
 
 Roles base creados automáticamente por empresa: Administrador, Supervisor, Jefe de equipo, Empleado, RRHH, Solo lectura.
 
-Permisos disponibles:
+Permisos definidos en `hr.permission_catalog` — formato `module.resource.action`:
 ```
-punches.view_own | view_team | cancel | annul | create_retroactive | edit_time
-absences.view_own | view_team | request | approve | reject | manage_all
-employees.view_team | view_all | edit
-reports.view_team | view_company
-audit.view | company.settings | work_locations.manage | schedules.manage
-module.hr | module.logistics | module.sales | module.finance | module.production | module.projects
+hr.punches.*        view_own | view_team | view_all | create | create_retroactive | edit_time | cancel | annul | export
+hr.absences.*       view_own | view_team | view_all | request | approve | reject | cancel | manage_all | export
+hr.employees.*      view_own | view_team | view_all | create | edit | edit_sensitive | deactivate | export
+hr.teams.*          view_own | view_all | manage
+hr.schedules.*      view_own | view_team | view_all | manage
+hr.work_locations.* view | manage
+hr.payroll.*        view_own | view_team | view_all | manage | export
+hr.reports.*        view_team | view_all | export
+logistics.*         inventory | purchase_orders | shipments | warehouses | reports
+sales.*             customers | quotes | orders | invoices | pos | reports
+finance.*           journal_entries | invoices | payments | budgets | fixed_assets | periods | reports
+production.*        orders | bom | quality | reports
+projects.*          projects | tasks | time_entries | reports
+system.*            roles | users | audit | company | integrations | notifications
 ```
 
-El sistema RBAC aplica a todos los módulos — el mismo `role_id` en `hr.system_users` controla acceso a HR, Logística, Ventas, Finanzas, Producción y Proyectos via los permisos `module.*`.
+`risk_level`: `low` (verde) | `medium` (azul) | `high` (naranja) | `critical` (rojo) — para la UI del admin.
+El Administrador recibe todos los permisos del catálogo automáticamente.
 
 Regla de aprobación de ausencias: siempre va al `reports_to` del empleado (responsable directo), independiente del rol en el sistema.
+
+## Equipos de trabajo (hr.teams)
+
+Tres conceptos separados y distintos:
+- `hr.employees.reports_to` → jerarquía de aprobación (quién aprueba ausencias/permisos)
+- `hr.teams` + `hr.team_members` → agrupación operativa del día a día (Equipo Ventas Norte, Turno Mañana)
+- `projects.project_members` → equipo de un proyecto concreto
+
+`hr.teams`: catálogo de equipos con `team_type` (operational | shift | functional), `leader_id` (conveniencia).
+`hr.team_members`: historial completo de asignaciones — `joined_at` / `left_at` (NULL = activo). Nunca se borran filas.
+- Unique index: solo un líder activo por equipo, solo una membresía activa por empleado por equipo.
+- `hr.assign_team_member(team_id, employee_id, role, reason, created_by)` → mueve empleado (cierra anterior, abre nueva).
+- `hr.remove_team_member(team_id, employee_id, reason, created_by)` → saca empleado del equipo.
 
 ## Pendiente (próxima sesión)
 1. Correr migraciones pendientes (ver arriba)
