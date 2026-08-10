@@ -20,9 +20,13 @@ rm -rf graphify-out
 echo "   ✅ OK"
 echo ""
 
-# 2. Extraer grafo del código
-echo "▶  graphify . (extrayendo nodos y aristas)..."
-graphify .
+# 2. Extraer grafo SOLO de las carpetas relevantes
+#    (no analizamos node_modules, venv, ni docs de módulos sin construir)
+echo "▶  graphify (extrayendo nodos y aristas)..."
+graphify \
+    mantras-api/src \
+    mantras-web/src \
+    docs/hr/sql
 echo ""
 
 # 3. Clustering
